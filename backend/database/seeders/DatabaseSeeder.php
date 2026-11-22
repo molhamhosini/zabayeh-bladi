@@ -88,7 +88,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        User::create(['name' => 'Admin', 'email' => env('ADMIN_EMAIL', 'admin@zabayehbladi.test'), 'password' => env('ADMIN_PASSWORD', 'password'), 'role' => User::ROLE_ADMIN]);
+        User::create(['name' => 'Admin', 'email' => env('ADMIN_EMAIL') ?: 'admin@zabayehbladi.test', 'password' => env('ADMIN_PASSWORD') ?: 'password', 'role' => User::ROLE_ADMIN]);
         User::create(['name' => 'Dubai branch', 'email' => 'dubai@zabayehbladi.test', 'password' => 'password', 'role' => User::ROLE_BRANCH_STAFF, 'branch_id' => $branch->id]);
     }
 }

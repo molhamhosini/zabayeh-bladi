@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="ذبائح بلادي">
+  <circle cx="60" cy="60" r="58" fill="#8C1C2B"/>
+  <circle cx="60" cy="60" r="52" fill="none" stroke="#D4AF6A" stroke-width="1.5" stroke-dasharray="2 4"/>
+  <g fill="none" stroke="#D4AF6A" stroke-width="7" stroke-linecap="round">
+    <path id="h" d="M50 42 C 34 24, 12 36, 20 56 C 26 70, 44 66, 41 54 C 39 46, 29 47, 30 55"/>
+    <use href="#h" transform="translate(120 0) scale(-1 1)"/>
+  </g>
+  <path d="M47 41 Q60 35 73 41 L71 74 Q66 88 60 89 Q54 88 49 74 Z" fill="#F7F1E6"/>
+  <circle cx="53.5" cy="55" r="2.6" fill="#4A0E17"/>
+  <circle cx="66.5" cy="55" r="2.6" fill="#4A0E17"/>
+  <path d="M56.5 81 Q57.5 83 58.5 81 M61.5 81 Q62.5 83 63.5 81" fill="none" stroke="#8C1C2B" stroke-width="1.8" stroke-linecap="round"/>
+</svg>
