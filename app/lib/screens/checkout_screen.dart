@@ -55,6 +55,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _purpose = context.read<AppState>().purpose;
     _load();
   }
 
@@ -141,7 +142,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
         'items': [
           for (final l in state.cart)
-            {'product_id': l.product['id'], 'quantity': l.quantity, 'option_ids': l.options.map((o) => o['id']).toList()},
+            {
+              'product_id': l.product['id'],
+              'variant_id': l.variant?['id'],
+              'quantity': l.quantity,
+              'option_ids': l.options.map((o) => o['id']).toList(),
+            },
         ],
       });
       final order = res['order'];

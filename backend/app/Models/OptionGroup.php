@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OptionGroup extends Model
 {
-    protected $fillable = ['name_ar', 'name_en', 'required', 'multiple', 'sort'];
+    protected $fillable = ['name_ar', 'name_en', 'required', 'multiple', 'display', 'sort'];
 
     protected $casts = ['required' => 'boolean', 'multiple' => 'boolean'];
 

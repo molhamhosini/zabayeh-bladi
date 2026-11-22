@@ -11,6 +11,7 @@ use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -42,7 +43,7 @@ class ProductResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('بيانات المنتج')->columns(2)->schema([
+            Section::make('بيانات المنتج')->columns(2)->columnSpanFull()->schema([
                 Select::make('branch_id')->label('الفرع')->relationship('branch', 'name_ar')->required()->searchable()->preload()
                     ->hidden(fn () => static::inBranchPanel()),
                 Select::make('category_id')->label('الصنف')->relationship('category', 'name_ar')->required()->preload(),
@@ -53,12 +54,29 @@ class ProductResource extends Resource
                 TextInput::make('weight_min_kg')->label('أقل وزن (كغ)')->numeric(),
                 TextInput::make('weight_max_kg')->label('أعلى وزن (كغ)')->numeric(),
                 TextInput::make('price')->label('السعر قبل الضريبة')->required()->numeric()->minValue(0)->suffix('درهم'),
+                TextInput::make('compare_at_price')->label('السعر قبل الخصم (اختياري)')->numeric()->minValue(0)->suffix('درهم')
+                    ->helperText('إذا كان أعلى من السعر يظهر للعميل كخصم.')->gt('price'),
                 TextInput::make('sort')->label('الترتيب')->numeric()->default(0),
                 FileUpload::make('image')->label('الصورة')->image()->disk('public')->directory('products')->columnSpanFull(),
                 Toggle::make('in_stock')->label('متوفر')->default(true),
                 Toggle::make('active')->label('ظاهر في التطبيق')->default(true),
+                Toggle::make('is_featured')->label('يظهر في عروض الرئيسية'),
             ]),
-            Section::make('خيارات التجهيز')->schema([
+            Section::make('الأوزان المتاحة')->columnSpanFull()
+                ->description('أضف وزناً أو أكثر بالعمر والسعر. سعر المنتج في القائمة يصبح أقل سعر من هذه الأوزان.')
+                ->schema([
+                    Repeater::make('variants')->hiddenLabel()->relationship()->orderColumn('sort')->columns(6)->defaultItems(0)
+                        ->addActionLabel('إضافة وزن')
+                        ->schema([
+                            TextInput::make('weight_min_kg')->label('من (كغ)')->numeric()->required(),
+                            TextInput::make('weight_max_kg')->label('إلى (كغ)')->numeric()->required()->gte('weight_min_kg'),
+                            TextInput::make('age_ar')->label('العمر')->placeholder('2-4 شهور'),
+                            TextInput::make('price')->label('السعر')->numeric()->required()->suffix('درهم'),
+                            TextInput::make('compare_at_price')->label('قبل الخصم')->numeric()->suffix('درهم'),
+                            Toggle::make('in_stock')->label('متوفر')->default(true)->inline(false),
+                        ]),
+                ]),
+            Section::make('خيارات التجهيز')->columnSpanFull()->schema([
                 CheckboxList::make('optionGroups')->label('مجموعات الخيارات المتاحة لهذا المنتج')
                     ->relationship('optionGroups', 'name_ar')->columns(2),
             ]),
@@ -77,6 +95,7 @@ class ProductResource extends Resource
                 TextColumn::make('price')->label('السعر')->money('AED')->sortable(),
                 ToggleColumn::make('in_stock')->label('متوفر'),
                 ToggleColumn::make('active')->label('ظاهر'),
+                ToggleColumn::make('is_featured')->label('عرض'),
             ])
             ->defaultSort('sort')
             ->filters([

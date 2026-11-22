@@ -5,6 +5,23 @@ import 'state.dart';
 
 /// Small in-app dictionary. Arabic is the primary language.
 const _strings = <String, Map<String, String>>{
+  'search': {'ar': 'ما الذي تبحث عنه؟', 'en': 'What are you looking for?'},
+  'goToSections': {'ar': 'الذهاب إلى الأقسام', 'en': 'Browse sections'},
+  'whatToOrder': {'ar': 'ماذا تريد أن تطلب؟', 'en': 'What would you like to order?'},
+  'sections': {'ar': 'الأقسام', 'en': 'Sections'},
+  'livestock': {'ar': 'الذبائح', 'en': 'Livestock'},
+  'udhiyaSection': {'ar': 'الأضاحي', 'en': 'Udhiya'},
+  'aqiqahSection': {'ar': 'العقيقة والنذور', 'en': 'Aqiqah & vows'},
+  'sadaqahSection': {'ar': 'الصدقات', 'en': 'Sadaqah'},
+  'offers': {'ar': 'عروض', 'en': 'Offers'},
+  'popular': {'ar': 'الأكثر طلباً', 'en': 'Most ordered'},
+  'seeAll': {'ar': 'عرض الكل', 'en': 'See all'},
+  'exclVat': {'ar': '(غير شامل الضريبة)', 'en': '(excl. VAT)'},
+  'from': {'ar': 'من', 'en': 'from'},
+  'weights': {'ar': 'الأوزان المتاحة', 'en': 'Available weights'},
+  'includes': {'ar': 'يشمل الطلب على', 'en': 'Order includes'},
+  'chooseWeight': {'ar': 'يرجى اختيار الوزن', 'en': 'Please choose a weight'},
+  'kilo': {'ar': 'كيلو', 'en': 'kg'},
   'appName': {'ar': 'ذبائح بلادي', 'en': 'Zabayeh Bladi'},
   'tagline': {'ar': 'ذبائح طازجة من بلادنا إلى بابك', 'en': 'Fresh local livestock, delivered to your door'},
   'whereDeliver': {'ar': 'أين نوصل طلبك؟', 'en': 'Where should we deliver?'},

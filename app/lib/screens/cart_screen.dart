@@ -54,6 +54,7 @@ class CartScreen extends StatelessWidget {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(context.tr(line.product), style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                          if (line.variant != null) Text(context.tr(line.variant, 'label'), style: text.bodySmall?.copyWith(color: Brand.goldDark)),
                           for (final o in line.options)
                             Text('${context.tr(o, 'group')}: ${context.tr(o)}', style: text.bodySmall?.copyWith(color: Brand.muted)),
                           const SizedBox(height: 6),

@@ -17,6 +17,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 
 class OptionGroupResource extends Resource
@@ -38,10 +39,17 @@ class OptionGroupResource extends Resource
             TextInput::make('name_en')->label('اسم المجموعة بالإنجليزية')->required(),
             Toggle::make('required')->label('إلزامي'),
             Toggle::make('multiple')->label('يسمح باختيار أكثر من خيار'),
-            Repeater::make('options')->label('الخيارات')->relationship()->orderColumn('sort')->columnSpanFull()->columns(4)->schema([
+            Select::make('display')->label('طريقة العرض في التطبيق')->required()->default('chips')->options([
+                'cards' => 'بطاقات بالصور (مثل التقطيع والتغليف)',
+                'checklist' => 'قائمة اختيار (مثل الرأس والكرش)',
+                'chips' => 'أزرار صغيرة',
+            ]),
+            Repeater::make('options')->label('الخيارات')->relationship()->orderColumn('sort')->columnSpanFull()->columns(6)->schema([
+                FileUpload::make('image')->label('صورة')->image()->disk('public')->directory('options')->imagePreviewHeight('60'),
                 TextInput::make('name_ar')->label('بالعربية')->required(),
                 TextInput::make('name_en')->label('بالإنجليزية')->required(),
                 TextInput::make('extra_price')->label('سعر إضافي')->numeric()->default(0)->suffix('درهم'),
+                Toggle::make('default_selected')->label('محدد مسبقاً')->inline(false),
                 Toggle::make('active')->label('مفعّل')->default(true)->inline(false),
             ]),
         ]);

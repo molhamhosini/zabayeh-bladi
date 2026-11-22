@@ -40,7 +40,8 @@ class ApiFlowTest extends TestCase
     private function orderPayload(User $user, array $overrides = []): array
     {
         $address = $user->addresses()->create(['area_id' => $this->dubaiArea()->id, 'details' => 'Villa 12']);
-        $product = Product::where('name_en', 'Medium Naimi')->first();
+        $product = Product::where('name_en', 'Naimi sheep')->first();
+        $variant = $product->variants()->where('price', 1191)->first();
         $cut = Option::where('name_en', 'Mandi cut')->first();
         $pack = Option::where('name_en', 'Vacuum packed')->first();
 
@@ -49,7 +50,7 @@ class ApiFlowTest extends TestCase
             'address_id' => $address->id,
             'delivery_slot_id' => DeliverySlot::first()->id,
             'payment_method' => 'cod',
-            'items' => [['product_id' => $product->id, 'quantity' => 2, 'option_ids' => [$cut->id, $pack->id]]],
+            'items' => [['product_id' => $product->id, 'variant_id' => $variant->id, 'quantity' => 2, 'option_ids' => [$cut->id, $pack->id]]],
         ], $overrides);
     }
 
@@ -64,7 +65,7 @@ class ApiFlowTest extends TestCase
 
     public function test_catalog_only_shows_branches_that_deliver_to_the_area(): void
     {
-        $this->getJson('/api/v1/products?area_id='.$this->dubaiArea()->id)->assertOk()->assertJsonCount(7, 'data');
+        $this->getJson('/api/v1/products?area_id='.$this->dubaiArea()->id)->assertOk()->assertJsonCount(5, 'data');
 
         $abuDhabi = Area::where('name_en', 'Yas Island')->first();
         $this->getJson('/api/v1/products?area_id='.$abuDhabi->id)->assertOk()->assertJsonCount(0, 'data');
@@ -113,8 +114,9 @@ class ApiFlowTest extends TestCase
 
         $res = $this->actingAs($user)->postJson('/api/v1/orders', $this->orderPayload($user, ['purpose' => 'udhiya']))->assertCreated();
 
-        // (1150 + 0 mandi + 30 vacuum) * 2 = 2360; VAT 5% = 118
-        $res->assertJsonPath('order.subtotal', '2360.00')->assertJsonPath('order.vat', '118.00')->assertJsonPath('order.total', '2478.00')
+        // (1191 for 11-13 kg + 0 mandi + 30 vacuum) * 2 = 2442; VAT 5% = 122.10
+        $res->assertJsonPath('order.subtotal', '2442.00')->assertJsonPath('order.vat', '122.10')->assertJsonPath('order.total', '2564.10')
+            ->assertJsonPath('order.items.0.variant_ar', '11 - 13 كيلو · 4-6 شهور')
             ->assertJsonPath('order.purpose', 'udhiya')->assertJsonPath('order.number', '100001')->assertJsonCount(2, 'order.items.0.options');
         $this->assertSame(1, $slot->fresh()->booked);
 
@@ -156,8 +158,14 @@ class ApiFlowTest extends TestCase
         // Aqiqah needs the baby's name.
         $this->postJson('/api/v1/orders', array_merge($payload, ['purpose' => 'aqiqah', 'delivery_slot_id' => null]))->assertStatus(422)->assertJsonValidationErrors('beneficiary_name');
 
+        // Weight not chosen.
+        $p = $payload;
+        unset($p['items'][0]['variant_id']);
+        $p['delivery_slot_id'] = null;
+        $this->postJson('/api/v1/orders', $p)->assertStatus(422)->assertJsonValidationErrors('items.0.variant_id');
+
         // Out of stock.
-        Product::where('name_en', 'Medium Naimi')->update(['in_stock' => false]);
+        Product::where('name_en', 'Naimi sheep')->update(['in_stock' => false]);
         $this->postJson('/api/v1/orders', array_merge($payload, ['delivery_slot_id' => null]))->assertStatus(422);
 
         $this->assertSame(0, Order::count());

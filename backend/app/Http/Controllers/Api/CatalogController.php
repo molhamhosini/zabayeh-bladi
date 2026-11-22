@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\DeliverySlot;
@@ -15,6 +16,22 @@ class CatalogController extends Controller
     public function categories(): JsonResponse
     {
         return response()->json(Category::where('active', true)->orderBy('sort')->get(['id', 'slug', 'name_ar', 'name_en', 'image']));
+    }
+
+    /** Everything the home screen needs in one call: banners, sections and the offers row for the area. */
+    public function home(Request $request): JsonResponse
+    {
+        $areaId = (int) $request->validate(['area_id' => ['required', 'integer', 'exists:areas,id']])['area_id'];
+        $with = ['branch:id,vendor_id,name_ar,name_en', 'branch.vendor:id,name_ar,name_en,logo,is_own', 'category:id,slug,name_ar,name_en'];
+
+        return response()->json([
+            'banners' => Banner::live()->get(['id', 'title_ar', 'title_en', 'subtitle_ar', 'subtitle_en', 'image', 'category_id']),
+            'categories' => Category::where('active', true)->orderBy('sort')->get(['id', 'slug', 'name_ar', 'name_en', 'image']),
+            'offers' => Product::availableIn($areaId)->where('in_stock', true)
+                ->where(fn ($q) => $q->where('is_featured', true)->orWhereColumn('compare_at_price', '>', 'price'))
+                ->with($with)->orderBy('sort')->limit(12)->get(),
+            'popular' => Product::availableIn($areaId)->where('in_stock', true)->with($with)->orderBy('sort')->limit(12)->get(),
+        ]);
     }
 
     /** Products the user can order in their area, optionally filtered by category or branch. */
@@ -46,6 +63,7 @@ class CatalogController extends Controller
             'branch:id,vendor_id,name_ar,name_en,accepts_cod', 'branch.vendor:id,name_ar,name_en,logo,is_own',
             'category:id,slug,name_ar,name_en',
             'optionGroups.options' => fn ($q) => $q->where('active', true),
+            'variants',
         ]));
     }
 

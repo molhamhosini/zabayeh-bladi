@@ -15,6 +15,7 @@ Route::prefix('v1')->group(function () {
     Route::get('emirates', [LocationController::class, 'emirates']);
     Route::get('location/resolve', [LocationController::class, 'resolve']);
 
+    Route::get('home', [CatalogController::class, 'home']);
     Route::get('categories', [CatalogController::class, 'categories']);
     Route::get('products', [CatalogController::class, 'products']);
     Route::get('products/{product}', [CatalogController::class, 'product']);

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Area;
+use App\Models\Banner;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\DeliverySlot;
@@ -49,16 +50,15 @@ class DatabaseSeeder extends Seeder
         ])->mapWithKeys(fn ($c, $i) => [$c[0] => Category::create(['slug' => $c[0], 'name_ar' => $c[1], 'name_en' => $c[2], 'sort' => $i])]);
 
         $groups = [
-            ['التقطيع', 'Cutting', true, false, [['أرباع', 'Quarters', 0], ['تقطيع ثلاجة', 'Fridge cut', 0], ['تقطيع مندي', 'Mandi cut', 0], ['تقطيع كبسة', 'Kabsa cut', 0], ['كامل بدون تقطيع', 'Whole, uncut', 0]]],
-            ['التغليف', 'Packaging', true, false, [['أكياس عادية', 'Standard bags', 0], ['أطباق مغلفة', 'Sealed trays', 15], ['تغليف مفرغ (فاكيوم)', 'Vacuum packed', 30]]],
-            ['الرأس', 'Head', false, false, [['مع الرأس', 'With head', 0], ['بدون رأس', 'Without head', 0]]],
-            ['الكرشة والمعلاق', 'Offal', false, true, [['مع الكرشة', 'With tripe', 0], ['مع المعلاق', 'With liver & heart', 0]]],
+            ['طريقة التقطيع', 'Cutting', true, false, 'cards', [['تقطيع عربي 8 قطع', 'Arabic cut, 8 pieces', 0, true], ['تقطيع عربي 4 قطع', 'Arabic cut, 4 pieces', 0, false], ['تقطيع ثلاجة', 'Fridge cut', 0, false], ['تقطيع مندي', 'Mandi cut', 0, false], ['تقطيع كبسة', 'Kabsa cut', 0, false], ['كامل بدون تقطيع', 'Whole, uncut', 0, false]]],
+            ['طريقة التغليف', 'Packaging', true, false, 'cards', [['كرتون (بدون ثلج)', 'Carton (no ice)', 0, true], ['صندوق فوم مع الثلج', 'Foam box with ice', 20, false], ['أطباق مغلفة', 'Sealed trays', 15, false], ['تغليف مفرغ (فاكيوم)', 'Vacuum packed', 30, false]]],
+            ['يشمل الطلب على', 'Order includes', false, true, 'checklist', [['الرأس', 'Head', 0, true], ['المصران', 'Intestines', 0, true], ['الكرش', 'Tripe', 0, true]]],
         ];
         $groupIds = [];
-        foreach ($groups as $i => [$ar, $en, $req, $multi, $opts]) {
-            $g = OptionGroup::create(['name_ar' => $ar, 'name_en' => $en, 'required' => $req, 'multiple' => $multi, 'sort' => $i]);
-            foreach ($opts as $j => [$oar, $oen, $price]) {
-                $g->options()->create(['name_ar' => $oar, 'name_en' => $oen, 'extra_price' => $price, 'sort' => $j]);
+        foreach ($groups as $i => [$ar, $en, $req, $multi, $display, $opts]) {
+            $g = OptionGroup::create(['name_ar' => $ar, 'name_en' => $en, 'required' => $req, 'multiple' => $multi, 'display' => $display, 'sort' => $i]);
+            foreach ($opts as $j => [$oar, $oen, $price, $default]) {
+                $g->options()->create(['name_ar' => $oar, 'name_en' => $oen, 'extra_price' => $price, 'default_selected' => $default, 'sort' => $j]);
             }
             $groupIds[] = $g->id;
         }
@@ -69,17 +69,29 @@ class DatabaseSeeder extends Seeder
         $branch->areas()->attach(Area::whereHas('emirate', fn ($q) => $q->whereIn('slug', ['dubai', 'sharjah', 'ajman']))->pluck('id')
             ->mapWithKeys(fn ($id) => [$id => ['delivery_fee' => 0, 'min_order' => 0]]));
 
+        // Each animal has weight/age options with their own price.
         $catalog = [
-            ['naimi', 'نعيمي صغير', 'Small Naimi', 12, 15, 950], ['naimi', 'نعيمي وسط', 'Medium Naimi', 16, 19, 1150], ['naimi', 'نعيمي كبير', 'Large Naimi', 20, 24, 1400],
-            ['harri', 'حري صغير', 'Small Harri', 11, 14, 850], ['harri', 'حري وسط', 'Medium Harri', 15, 18, 1050],
-            ['goat', 'تيس محلي', 'Local goat', 10, 13, 800], ['veal', 'عجل محلي', 'Local veal', 80, 110, 4500],
+            ['naimi', 'خروف نعيمي', 'Naimi sheep', 'من أجود السلالات المحلية، لحم طري ودهن معتدل.', 'A prized local breed with tender meat.', true, [
+                [8, 10, '2-4 شهور', '2-4 months', 1143, 1250], [11, 13, '4-6 شهور', '4-6 months', 1191, null], [14, 16, '6-8 شهور', '6-8 months', 1240, null], [17, 20, '8-12 شهر', '8-12 months', 1390, null]]],
+            ['harri', 'خروف حري', 'Harri sheep', 'سلالة حري الشهيرة، مناسبة للمندي والكبسة.', 'The popular Harri breed, ideal for mandi and kabsa.', true, [
+                [8, 10, '2-4 شهور', '2-4 months', 899, 990], [11, 13, '4-6 شهور', '4-6 months', 975, null], [14, 16, '6-8 شهور', '6-8 months', 1060, null]]],
+            ['najdi', 'خروف نجدي', 'Najdi sheep', 'نجدي أصيل بلحم غني.', 'Authentic Najdi with rich meat.', false, [
+                [12, 14, '4-6 شهور', '4-6 months', 1290, null], [15, 18, '6-8 شهور', '6-8 months', 1450, null]]],
+            ['goat', 'تيس محلي', 'Local goat', 'تيس محلي طازج.', 'Fresh local goat.', true, [
+                [7, 9, '3-5 شهور', '3-5 months', 720, 790], [10, 12, '5-7 شهور', '5-7 months', 850, null]]],
+            ['veal', 'عجل محلي', 'Local veal', 'عجل محلي يُذبح حسب الطلب.', 'Local veal slaughtered to order.', false, [
+                [80, 100, '', '', 4500, null], [100, 130, '', '', 5600, null]]],
         ];
-        foreach ($catalog as $i => [$cat, $ar, $en, $min, $max, $price]) {
+        foreach ($catalog as $i => [$cat, $ar, $en, $dar, $den, $featured, $variants]) {
             $p = Product::create(['branch_id' => $branch->id, 'category_id' => $categories[$cat]->id, 'name_ar' => $ar, 'name_en' => $en,
-                'description_ar' => "وزن تقريبي من {$min} إلى {$max} كغ بعد الذبح، يُذبح ويُجهّز يوم التوصيل.",
-                'description_en' => "Approx. {$min}-{$max} kg after slaughter, prepared on delivery day.",
-                'weight_min_kg' => $min, 'weight_max_kg' => $max, 'price' => $price, 'sort' => $i]);
-            $p->optionGroups()->attach($groupIds);
+                'description_ar' => $dar.' يُذبح ويُجهّز يوم التوصيل.', 'description_en' => $den.' Prepared on delivery day.',
+                'price' => $variants[0][4], 'is_featured' => $featured, 'sort' => $i]);
+            foreach ($variants as $j => [$min, $max, $agear, $ageen, $price, $old]) {
+                $p->variants()->create(['weight_min_kg' => $min, 'weight_max_kg' => $max, 'age_ar' => $agear ?: null, 'age_en' => $ageen ?: null,
+                    'price' => $price, 'compare_at_price' => $old, 'sort' => $j]);
+            }
+            $p->syncFromVariants();
+            $p->optionGroups()->attach($cat === 'veal' ? array_slice($groupIds, 0, 2) : $groupIds);
         }
 
         for ($d = 1; $d <= 14; $d++) {
@@ -87,6 +99,10 @@ class DatabaseSeeder extends Seeder
                 DeliverySlot::create(['branch_id' => $branch->id, 'date' => today()->addDays($d), 'starts_at' => $s, 'ends_at' => $e, 'capacity' => 15]);
             }
         }
+
+        Banner::create(['title_ar' => 'ذبيحتك طازجة في نفس اليوم', 'title_en' => 'Same-day fresh slaughter', 'subtitle_ar' => 'نعيمي وحري ونجدي من مزارع الإمارات', 'subtitle_en' => 'Naimi, Harri & Najdi from UAE farms', 'category_id' => $categories['naimi']->id, 'sort' => 1]);
+        Banner::create(['title_ar' => 'العقيقة والنذور', 'title_en' => 'Aqiqah & vows', 'subtitle_ar' => 'نذبح ونوزّع عنك أو نوصلها لبيتك', 'subtitle_en' => 'We slaughter and distribute, or deliver home', 'sort' => 2]);
+        Banner::create(['title_ar' => 'توصيل مجاني', 'title_en' => 'Free delivery', 'subtitle_ar' => 'في دبي والشارقة وعجمان', 'subtitle_en' => 'In Dubai, Sharjah & Ajman', 'sort' => 3]);
 
         User::create(['name' => 'Admin', 'email' => env('ADMIN_EMAIL') ?: 'admin@zabayehbladi.test', 'password' => env('ADMIN_PASSWORD') ?: 'password', 'role' => User::ROLE_ADMIN]);
         User::create(['name' => 'Dubai branch', 'email' => 'dubai@zabayehbladi.test', 'password' => 'password', 'role' => User::ROLE_BRANCH_STAFF, 'branch_id' => $branch->id]);

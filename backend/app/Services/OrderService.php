@@ -50,19 +50,31 @@ class OrderService
             $lines = [];
             $subtotal = 0.0;
             foreach ($data['items'] as $i => $item) {
-                $product = Product::with('optionGroups')->where('branch_id', $branch->id)->where('active', true)
+                $product = Product::with('optionGroups', 'variants')->where('branch_id', $branch->id)->where('active', true)
                     ->find($item['product_id']) ?? $this->fail("items.$i.product_id", 'المنتج غير متاح في هذا الفرع.');
                 if (! $product->in_stock) {
                     $this->fail("items.$i.product_id", "نفدت الكمية: {$product->name_ar}");
                 }
 
+                $variant = null;
+                if ($product->variants->isNotEmpty()) {
+                    $variant = $product->variants->firstWhere('id', $item['variant_id'] ?? null)
+                        ?? $this->fail("items.$i.variant_id", "يرجى اختيار الوزن لـ {$product->name_ar}.");
+                    if (! $variant->in_stock) {
+                        $this->fail("items.$i.variant_id", "هذا الوزن غير متوفر حالياً: {$variant->label_ar}");
+                    }
+                }
+
                 [$options, $extra] = $this->resolveOptions($product, $item['option_ids'] ?? [], "items.$i.option_ids");
-                $unit = round((float) $product->price + $extra, 2);
+                $unit = round((float) ($variant?->price ?? $product->price) + $extra, 2);
                 $qty = (int) $item['quantity'];
                 $lines[] = [
                     'product_id' => $product->id,
+                    'product_variant_id' => $variant?->id,
                     'name_ar' => $product->name_ar,
                     'name_en' => $product->name_en,
+                    'variant_ar' => $variant?->label_ar,
+                    'variant_en' => $variant?->label_en,
                     'quantity' => $qty,
                     'unit_price' => $unit,
                     'options' => $options,

@@ -37,6 +37,7 @@ class OrderController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.product_id' => ['required', 'integer'],
+            'items.*.variant_id' => ['nullable', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
             'items.*.option_ids' => ['array'],
             'items.*.option_ids.*' => ['integer'],

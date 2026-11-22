@@ -108,6 +108,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     Expanded(child: Text('${it['quantity']}× ${context.tr(it)}', style: const TextStyle(fontWeight: FontWeight.w700))),
                     Price(double.parse('${it['line_total']}'), style: text.bodyMedium),
                   ]),
+                  if (it['variant_ar'] != null) Text(context.tr(it, 'variant'), style: text.bodySmall?.copyWith(color: Brand.goldDark)),
                   for (final opt in (it['options'] as List? ?? []))
                     Text('${context.tr(opt, 'group')}: ${context.tr(opt)}', style: text.bodySmall?.copyWith(color: Brand.muted)),
                   const SizedBox(height: 8),

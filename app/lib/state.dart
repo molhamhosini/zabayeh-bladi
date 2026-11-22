@@ -7,19 +7,22 @@ import 'api.dart';
 
 /// One line in the cart: a product with the chosen preparation options.
 class CartLine {
-  CartLine({required this.product, required this.options, required this.quantity});
+  CartLine({required this.product, this.variant, required this.options, required this.quantity});
   final Map<String, dynamic> product;
+  final Map<String, dynamic>? variant; // chosen weight/age, if the product has any
   final List<Map<String, dynamic>> options;
   int quantity;
 
   double get unitPrice =>
-      double.parse('${product['price']}') + options.fold<double>(0, (s, o) => s + double.parse('${o['extra_price'] ?? 0}'));
+      double.parse('${variant?['price'] ?? product['price']}') +
+      options.fold<double>(0, (s, o) => s + double.parse('${o['extra_price'] ?? 0}'));
   double get total => unitPrice * quantity;
-  String get key => '${product['id']}:${(options.map((o) => o['id']).toList()..sort()).join(',')}';
+  String get key => '${product['id']}:${variant?['id']}:${(options.map((o) => o['id']).toList()..sort()).join(',')}';
 
-  Map<String, dynamic> toJson() => {'product': product, 'options': options, 'quantity': quantity};
+  Map<String, dynamic> toJson() => {'product': product, 'variant': variant, 'options': options, 'quantity': quantity};
   static CartLine fromJson(Map<String, dynamic> j) => CartLine(
         product: Map<String, dynamic>.from(j['product']),
+        variant: j['variant'] == null ? null : Map<String, dynamic>.from(j['variant']),
         options: List<Map<String, dynamic>>.from((j['options'] as List).map((e) => Map<String, dynamic>.from(e))),
         quantity: j['quantity'],
       );
@@ -33,6 +36,8 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? area; // {id, name_ar, name_en, emirate: {...}}
   Map<String, dynamic>? user;
   List<CartLine> cart = [];
+  Set<int> favorites = {};
+  String purpose = 'normal'; // set when the customer enters from the Udhiya / Aqiqah / Sadaqah sections
   bool ready = false;
 
   bool get loggedIn => api.token != null;
@@ -51,7 +56,19 @@ class AppState extends ChangeNotifier {
     if (u != null) user = jsonDecode(u);
     final c = _prefs.getString('cart');
     if (c != null) cart = (jsonDecode(c) as List).map((e) => CartLine.fromJson(Map<String, dynamic>.from(e))).toList();
+    favorites = (_prefs.getStringList('favorites') ?? []).map(int.parse).toSet();
     ready = true;
+    notifyListeners();
+  }
+
+  void toggleFavorite(int productId) {
+    favorites.contains(productId) ? favorites.remove(productId) : favorites.add(productId);
+    _prefs.setStringList('favorites', favorites.map((e) => '$e').toList());
+    notifyListeners();
+  }
+
+  void setPurpose(String p) {
+    purpose = p;
     notifyListeners();
   }
 

@@ -16,4 +16,14 @@ class EditProduct extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function afterSave(): void
+    {
+        $this->record->syncFromVariants();
+    }
+
+    protected function afterCreate(): void
+    {
+        $this->record->syncFromVariants();
+    }
 }

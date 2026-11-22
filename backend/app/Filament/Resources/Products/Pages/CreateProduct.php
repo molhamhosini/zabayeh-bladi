@@ -13,4 +13,14 @@ class CreateProduct extends CreateRecord
     {
         return ProductResource::stampBranch($data);
     }
+
+    protected function afterSave(): void
+    {
+        $this->record->syncFromVariants();
+    }
+
+    protected function afterCreate(): void
+    {
+        $this->record->syncFromVariants();
+    }
 }
