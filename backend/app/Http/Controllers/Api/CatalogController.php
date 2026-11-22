@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Branch;
+use App\Models\Category;
+use App\Models\DeliverySlot;
+use App\Models\Product;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class CatalogController extends Controller
+{
+    public function categories(): JsonResponse
+    {
+        return response()->json(Category::where('active', true)->orderBy('sort')->get(['id', 'slug', 'name_ar', 'name_en', 'image']));
+    }
+
+    /** Products the user can order in their area, optionally filtered by category or branch. */
+    public function products(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'category_id' => ['nullable', 'integer'],
+            'branch_id' => ['nullable', 'integer'],
+            'q' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $products = Product::availableIn((int) $data['area_id'])
+            ->when($data['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($data['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
+            ->when($data['q'] ?? null, fn ($q, $s) => $q->where(fn ($w) => $w->where('name_ar', 'like', "%$s%")->orWhere('name_en', 'like', "%$s%")))
+            ->with(['branch:id,vendor_id,name_ar,name_en', 'branch.vendor:id,name_ar,name_en,logo,is_own', 'category:id,slug,name_ar,name_en'])
+            ->orderByDesc('in_stock')->orderBy('sort')->orderBy('price')
+            ->paginate(20);
+
+        return response()->json($products);
+    }
+
+    public function product(Product $product): JsonResponse
+    {
+        abort_unless($product->active, 404);
+
+        return response()->json($product->load([
+            'branch:id,vendor_id,name_ar,name_en,accepts_cod', 'branch.vendor:id,name_ar,name_en,logo,is_own',
+            'category:id,slug,name_ar,name_en',
+            'optionGroups.options' => fn ($q) => $q->where('active', true),
+        ]));
+    }
+
+    /** Branches delivering to the area, with their fee there. */
+    public function branches(Request $request): JsonResponse
+    {
+        $areaId = (int) $request->validate(['area_id' => ['required', 'integer', 'exists:areas,id']])['area_id'];
+
+        return response()->json(Branch::where('active', true)
+            ->whereHas('vendor', fn ($q) => $q->where('active', true))
+            ->whereHas('areas', fn ($q) => $q->where('areas.id', $areaId))
+            ->with(['vendor:id,name_ar,name_en,logo,is_own', 'areas' => fn ($q) => $q->where('areas.id', $areaId)])
+            ->get()
+            ->map(fn (Branch $b) => [
+                'id' => $b->id, 'name_ar' => $b->name_ar, 'name_en' => $b->name_en, 'accepts_cod' => $b->accepts_cod,
+                'vendor' => $b->vendor,
+                'delivery_fee' => (float) $b->areas->first()->pivot->delivery_fee,
+                'min_order' => (float) $b->areas->first()->pivot->min_order,
+            ]));
+    }
+
+    public function slots(Branch $branch): JsonResponse
+    {
+        return response()->json(DeliverySlot::where('branch_id', $branch->id)
+            ->whereBetween('date', [today(), today()->addDays(14)])
+            ->whereColumn('booked', '<', 'capacity')
+            ->orderBy('date')->orderBy('starts_at')
+            ->get(['id', 'date', 'starts_at', 'ends_at']));
+    }
+}
