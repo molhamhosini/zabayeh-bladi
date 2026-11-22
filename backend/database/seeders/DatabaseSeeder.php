@@ -83,7 +83,7 @@ class DatabaseSeeder extends Seeder
         }
 
         for ($d = 1; $d <= 14; $d++) {
-            foreach ([['09:00', '13:00'], ['14:00', '18:00'], ['18:00', '22:00']] as [$s, $e]) {
+            foreach (DeliverySlot::DEFAULT_WINDOWS as [$s, $e]) {
                 DeliverySlot::create(['branch_id' => $branch->id, 'date' => today()->addDays($d), 'starts_at' => $s, 'ends_at' => $e, 'capacity' => 15]);
             }
         }

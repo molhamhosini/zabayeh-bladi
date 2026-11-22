@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
-    public const STATUSES = ['pending', 'confirmed', 'slaughtering', 'packing', 'out_for_delivery', 'delivered', 'cancelled'];
+    public const STATUSES = ['pending', 'confirmed', 'slaughtering', 'packing', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'failed_delivery'];
 
     public const PURPOSES = ['normal', 'udhiya', 'aqiqah', 'sadaqah'];
 
@@ -18,9 +18,11 @@ class Order extends Model
         'confirmed' => ['slaughtering', 'cancelled'],
         'slaughtering' => ['packing'],
         'packing' => ['out_for_delivery'],
-        'out_for_delivery' => ['delivered'],
-        'delivered' => [],
+        'out_for_delivery' => ['delivered', 'failed_delivery'],
+        'failed_delivery' => ['out_for_delivery', 'cancelled'],
+        'delivered' => ['returned'],
         'cancelled' => [],
+        'returned' => [],
     ];
 
     protected $fillable = ['number', 'user_id', 'branch_id', 'address_id', 'delivery_slot_id', 'purpose', 'beneficiary_name',

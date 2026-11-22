@@ -53,7 +53,7 @@ class DeliverySlotResource extends Resource
             ->columns([
                 TextColumn::make('branch.name_ar')->label('الفرع')->hidden(fn () => static::inBranchPanel()),
                 TextColumn::make('date')->label('التاريخ')->date('Y-m-d l')->sortable(),
-                TextColumn::make('starts_at')->label('الوقت')->formatStateUsing(fn ($state, DeliverySlot $r) => substr($r->starts_at, 0, 5).' - '.substr($r->ends_at, 0, 5)),
+                TextColumn::make('starts_at')->label('الوقت')->formatStateUsing(fn ($state, DeliverySlot $r) => $r->label()),
                 TextColumn::make('booked')->label('المحجوز')->formatStateUsing(fn ($state, DeliverySlot $r) => "{$r->booked} / {$r->capacity}")
                     ->color(fn (DeliverySlot $r) => $r->isFull() ? 'danger' : 'success'),
             ])

@@ -8,6 +8,7 @@ use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Models\Order;
 use BackedEnum;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -39,16 +40,26 @@ class OrderResource extends Resource
     public const STATUSES = [
         'pending' => 'جديد', 'confirmed' => 'مؤكد', 'slaughtering' => 'قيد الذبح', 'packing' => 'قيد التجهيز',
         'out_for_delivery' => 'في الطريق', 'delivered' => 'تم التوصيل', 'cancelled' => 'ملغي',
+        'returned' => 'مرتجع', 'failed_delivery' => 'فشل التوصيل',
+    ];
+
+    /** Icon per status, used on the status cards. */
+    public const STATUS_ICONS = [
+        'pending' => 'heroicon-o-clock', 'confirmed' => 'heroicon-o-check-circle', 'slaughtering' => 'heroicon-o-scissors',
+        'packing' => 'heroicon-o-archive-box', 'out_for_delivery' => 'heroicon-o-truck', 'delivered' => 'heroicon-o-home-modern',
+        'cancelled' => 'heroicon-o-x-circle', 'returned' => 'heroicon-o-arrow-uturn-left', 'failed_delivery' => 'heroicon-o-exclamation-triangle',
     ];
 
     public const STATUS_ACTIONS = [
         'confirmed' => 'تأكيد الطلب', 'slaughtering' => 'بدء الذبح', 'packing' => 'بدء التجهيز',
         'out_for_delivery' => 'خرج للتوصيل', 'delivered' => 'تم التوصيل', 'cancelled' => 'إلغاء الطلب',
+        'returned' => 'تسجيل مرتجع', 'failed_delivery' => 'فشل التوصيل',
     ];
 
     public const STATUS_COLORS = [
-        'pending' => 'warning', 'confirmed' => 'info', 'slaughtering' => 'info', 'packing' => 'info',
-        'out_for_delivery' => 'primary', 'delivered' => 'success', 'cancelled' => 'danger',
+        'pending' => 'warning', 'confirmed' => 'success', 'slaughtering' => 'info', 'packing' => 'info',
+        'out_for_delivery' => 'info', 'delivered' => 'gray', 'cancelled' => 'danger',
+        'returned' => 'warning', 'failed_delivery' => 'danger',
     ];
 
     public const PURPOSES = ['normal' => 'عادي', 'udhiya' => 'أضحية', 'aqiqah' => 'عقيقة', 'sadaqah' => 'صدقة'];
@@ -89,7 +100,7 @@ class OrderResource extends Resource
                     ->formatStateUsing(fn ($state, Order $r) => $r->address->area->emirate->name_ar.' - '.$state),
                 TextEntry::make('address.details')->label('العنوان')->columnSpan(2),
                 TextEntry::make('slot')->label('موعد التوصيل')->placeholder('أقرب وقت')
-                    ->formatStateUsing(fn ($state, Order $r) => $r->slot ? $r->slot->date->format('Y-m-d').'  '.substr($r->slot->starts_at, 0, 5).' - '.substr($r->slot->ends_at, 0, 5) : null),
+                    ->formatStateUsing(fn ($state, Order $r) => $r->slot ? $r->slot->date->format('Y-m-d').' - '.$r->slot->label() : null),
                 TextEntry::make('map')->label('الموقع على الخريطة')->state(fn (Order $r) => $r->address->lat ? 'فتح في خرائط Google' : null)->placeholder('-')
                     ->url(fn (Order $r) => $r->address->lat ? "https://maps.google.com/?q={$r->address->lat},{$r->address->lng}" : null, true),
             ]),
@@ -103,7 +114,7 @@ class OrderResource extends Resource
                 ]),
             ]),
             Section::make('الدفع')->columns(4)->schema([
-                TextEntry::make('payment_method')->label('طريقة الدفع')->formatStateUsing(fn ($state) => $state === 'card' ? 'بطاقة (Stripe)' : 'عند الاستلام'),
+                TextEntry::make('payment_method')->label('طريقة الدفع')->formatStateUsing(fn ($state) => $state === 'card' ? 'Stripe (بطاقة / Apple Pay)' : 'كاش عند الاستلام'),
                 TextEntry::make('payment_status')->label('حالة الدفع')->badge()
                     ->formatStateUsing(fn ($state) => self::PAYMENT[$state] ?? $state)->color(fn ($state) => $state === 'paid' ? 'success' : 'warning'),
                 TextEntry::make('subtotal')->label('المنتجات')->money('AED'),
@@ -131,22 +142,48 @@ class OrderResource extends Resource
                 TextColumn::make('purpose')->label('النوع')->badge()->formatStateUsing(fn ($state) => self::PURPOSES[$state] ?? $state),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn ($state) => self::STATUSES[$state] ?? $state)->color(fn ($state) => self::STATUS_COLORS[$state] ?? 'gray'),
-                TextColumn::make('slot.date')->label('موعد التوصيل')->date('Y-m-d')->placeholder('أقرب وقت')->sortable(),
+                TextColumn::make('slot.date')->label('موعد التوصيل')->date('Y-m-d')->placeholder('أقرب وقت')->sortable()
+                    ->description(fn (Order $r) => $r->slot?->label()),
                 TextColumn::make('payment_status')->label('الدفع')->badge()
-                    ->formatStateUsing(fn ($state, Order $r) => (self::PAYMENT[$state] ?? $state).' - '.($r->payment_method === 'card' ? 'بطاقة' : 'نقداً'))
+                    ->formatStateUsing(fn ($state, Order $r) => (self::PAYMENT[$state] ?? $state).' - '.($r->payment_method === 'card' ? 'Stripe' : 'كاش'))
                     ->color(fn ($state) => $state === 'paid' ? 'success' : 'warning'),
                 TextColumn::make('total')->label('الإجمالي')->money('AED')->sortable(),
                 TextColumn::make('created_at')->label('وقت الطلب')->since()->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->recordClasses(fn (Order $r) => 'zb-st zb-st-'.$r->status)
             ->poll('30s')
             ->filters([
                 SelectFilter::make('status')->label('الحالة')->options(self::STATUSES)->multiple(),
+                SelectFilter::make('payment_method')->label('طريقة الدفع')->options(['cod' => 'كاش', 'card' => 'Stripe']),
+                SelectFilter::make('payment_status')->label('حالة الدفع')->options(self::PAYMENT),
                 SelectFilter::make('purpose')->label('النوع')->options(self::PURPOSES),
                 SelectFilter::make('branch_id')->label('الفرع')->relationship('branch', 'name_ar')->hidden(fn () => static::inBranchPanel()),
+                Filter::make('delivery_date')
+                    ->label('تاريخ التوصيل')
+                    ->schema([
+                        DatePicker::make('from')->label('من تاريخ'),
+                        DatePicker::make('until')->label('إلى تاريخ'),
+                    ])
+                    ->query(fn (Builder $q, array $data) => static::applyDeliveryDate($q, $data))
+                    ->indicateUsing(fn (array $data) => array_filter([
+                        $data['from'] ?? null ? 'من '.$data['from'] : null,
+                        $data['until'] ?? null ? 'إلى '.$data['until'] : null,
+                    ])),
                 Filter::make('today')->label('توصيل اليوم')->query(fn (Builder $q) => $q->whereHas('slot', fn ($s) => $s->whereDate('date', today()))),
             ])
             ->recordActions([ViewAction::make()]);
+    }
+
+    public static function applyDeliveryDate(Builder $q, array $data): Builder
+    {
+        if (empty($data['from']) && empty($data['until'])) {
+            return $q;
+        }
+
+        return $q->whereHas('slot', fn (Builder $s) => $s
+            ->when($data['from'] ?? null, fn ($s, $d) => $s->whereDate('date', '>=', $d))
+            ->when($data['until'] ?? null, fn ($s, $d) => $s->whereDate('date', '<=', $d)));
     }
 
     public static function getPages(): array

@@ -1,0 +1,108 @@
+import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
+
+import 'state.dart';
+
+/// Small in-app dictionary. Arabic is the primary language.
+const _strings = <String, Map<String, String>>{
+  'appName': {'ar': 'ذبائح بلادي', 'en': 'Zabayeh Bladi'},
+  'tagline': {'ar': 'ذبائح طازجة من بلادنا إلى بابك', 'en': 'Fresh local livestock, delivered to your door'},
+  'whereDeliver': {'ar': 'أين نوصل طلبك؟', 'en': 'Where should we deliver?'},
+  'whereDeliverHint': {'ar': 'نعرض لك الذبائح والملاحم المتوفرة في منطقتك', 'en': 'We show the livestock and butchers available in your area'},
+  'useMyLocation': {'ar': 'استخدم موقعي الحالي', 'en': 'Use my current location'},
+  'pickManually': {'ar': 'اختر المنطقة يدوياً', 'en': 'Choose area manually'},
+  'locating': {'ar': 'جارٍ تحديد موقعك...', 'en': 'Finding your location...'},
+  'notServed': {'ar': 'عذراً، لا نوصل إلى موقعك حالياً. اختر منطقة أخرى.', 'en': "Sorry, we don't deliver to your location yet. Pick another area."},
+  'locationDenied': {'ar': 'لم نتمكن من الوصول لموقعك، اختر المنطقة يدوياً.', 'en': "Couldn't get your location, please choose manually."},
+  'chooseEmirate': {'ar': 'اختر الإمارة', 'en': 'Choose emirate'},
+  'chooseArea': {'ar': 'اختر المنطقة', 'en': 'Choose area'},
+  'deliverTo': {'ar': 'التوصيل إلى', 'en': 'Deliver to'},
+  'all': {'ar': 'الكل', 'en': 'All'},
+  'noProducts': {'ar': 'لا توجد منتجات متاحة في منطقتك حالياً', 'en': 'No products available in your area yet'},
+  'aed': {'ar': 'د.إ', 'en': 'AED'},
+  'kg': {'ar': 'كغ', 'en': 'kg'},
+  'weight': {'ar': 'الوزن التقريبي', 'en': 'Approx. weight'},
+  'outOfStock': {'ar': 'نفدت الكمية', 'en': 'Out of stock'},
+  'by': {'ar': 'من', 'en': 'by'},
+  'addToCart': {'ar': 'أضف إلى السلة', 'en': 'Add to cart'},
+  'added': {'ar': 'تمت الإضافة إلى السلة', 'en': 'Added to cart'},
+  'required': {'ar': 'إلزامي', 'en': 'Required'},
+  'chooseRequired': {'ar': 'يرجى اختيار', 'en': 'Please choose'},
+  'quantity': {'ar': 'الكمية', 'en': 'Quantity'},
+  'cart': {'ar': 'السلة', 'en': 'Cart'},
+  'emptyCart': {'ar': 'سلتك فارغة', 'en': 'Your cart is empty'},
+  'otherBranchTitle': {'ar': 'سلة من ملحمة أخرى', 'en': 'Cart from another butcher'},
+  'otherBranchBody': {'ar': 'سلتك تحتوي منتجات من ملحمة أخرى. هل تريد إفراغها وإضافة هذا المنتج؟', 'en': 'Your cart has items from another butcher. Clear it and add this item?'},
+  'clearAndAdd': {'ar': 'إفراغ وإضافة', 'en': 'Clear & add'},
+  'cancel': {'ar': 'إلغاء', 'en': 'Cancel'},
+  'subtotal': {'ar': 'المجموع', 'en': 'Subtotal'},
+  'delivery': {'ar': 'التوصيل', 'en': 'Delivery'},
+  'free': {'ar': 'مجاني', 'en': 'Free'},
+  'vat': {'ar': 'ضريبة القيمة المضافة 5%', 'en': 'VAT 5%'},
+  'total': {'ar': 'الإجمالي', 'en': 'Total'},
+  'checkout': {'ar': 'متابعة الطلب', 'en': 'Checkout'},
+  'login': {'ar': 'تسجيل الدخول', 'en': 'Sign in'},
+  'phone': {'ar': 'رقم الجوال', 'en': 'Mobile number'},
+  'sendCode': {'ar': 'أرسل رمز التحقق', 'en': 'Send code'},
+  'enterCode': {'ar': 'أدخل الرمز المرسل إلى', 'en': 'Enter the code sent to'},
+  'verify': {'ar': 'تأكيد', 'en': 'Verify'},
+  'yourName': {'ar': 'الاسم (اختياري)', 'en': 'Name (optional)'},
+  'address': {'ar': 'عنوان التوصيل', 'en': 'Delivery address'},
+  'addAddress': {'ar': 'إضافة عنوان', 'en': 'Add address'},
+  'addressDetails': {'ar': 'تفاصيل العنوان (الشارع، الفيلا/الشقة)', 'en': 'Address details (street, villa/apartment)'},
+  'addressLabel': {'ar': 'اسم العنوان (البيت، العمل)', 'en': 'Label (Home, Work)'},
+  'save': {'ar': 'حفظ', 'en': 'Save'},
+  'orderType': {'ar': 'نوع الطلب', 'en': 'Order type'},
+  'normal': {'ar': 'عادي', 'en': 'Regular'},
+  'udhiya': {'ar': 'أضحية', 'en': 'Udhiya'},
+  'aqiqah': {'ar': 'عقيقة', 'en': 'Aqiqah'},
+  'sadaqah': {'ar': 'صدقة', 'en': 'Sadaqah'},
+  'beneficiary': {'ar': 'اسم صاحب الأضحية / المولود', 'en': 'Name (for the Udhiya / newborn)'},
+  'donate': {'ar': 'توزيعها على المحتاجين بدلاً من توصيلها', 'en': 'Distribute to people in need instead of delivering'},
+  'slot': {'ar': 'موعد التوصيل', 'en': 'Delivery time'},
+  'noSlots': {'ar': 'لا توجد مواعيد متاحة، سنتواصل معك لتحديد الموعد', 'en': "No slots available, we'll call you to schedule"},
+  'payment': {'ar': 'طريقة الدفع', 'en': 'Payment method'},
+  'card': {'ar': 'دفع إلكتروني (بطاقة / Apple Pay)', 'en': 'Online (Card / Apple Pay)'},
+  'cod': {'ar': 'كاش عند الاستلام', 'en': 'Cash on delivery'},
+  'notes': {'ar': 'ملاحظات للملحمة', 'en': 'Notes for the butcher'},
+  'placeOrder': {'ar': 'تأكيد الطلب', 'en': 'Place order'},
+  'orderPlaced': {'ar': 'تم استلام طلبك بنجاح', 'en': 'Your order has been placed'},
+  'paymentFailed': {'ar': 'لم يكتمل الدفع، يمكنك المحاولة من صفحة الطلب', 'en': 'Payment not completed, you can retry from the order page'},
+  'payNow': {'ar': 'ادفع الآن', 'en': 'Pay now'},
+  'myOrders': {'ar': 'طلباتي', 'en': 'My orders'},
+  'noOrders': {'ar': 'لا توجد طلبات بعد', 'en': 'No orders yet'},
+  'order': {'ar': 'طلب', 'en': 'Order'},
+  'cancelOrder': {'ar': 'إلغاء الطلب', 'en': 'Cancel order'},
+  'account': {'ar': 'حسابي', 'en': 'Account'},
+  'language': {'ar': 'English', 'en': 'العربية'},
+  'logout': {'ar': 'تسجيل الخروج', 'en': 'Sign out'},
+  'home': {'ar': 'الرئيسية', 'en': 'Home'},
+  'error': {'ar': 'حدث خطأ، حاول مرة أخرى', 'en': 'Something went wrong, try again'},
+  'retry': {'ar': 'إعادة المحاولة', 'en': 'Retry'},
+  'paid': {'ar': 'مدفوع', 'en': 'Paid'},
+  'unpaid': {'ar': 'غير مدفوع', 'en': 'Unpaid'},
+  'st_pending': {'ar': 'تم استلام الطلب', 'en': 'Received'},
+  'st_confirmed': {'ar': 'تم التأكيد', 'en': 'Confirmed'},
+  'st_slaughtering': {'ar': 'قيد الذبح', 'en': 'Slaughtering'},
+  'st_packing': {'ar': 'قيد التجهيز والتغليف', 'en': 'Packing'},
+  'st_out_for_delivery': {'ar': 'في الطريق إليك', 'en': 'Out for delivery'},
+  'st_delivered': {'ar': 'تم التوصيل', 'en': 'Delivered'},
+  'st_cancelled': {'ar': 'ملغي', 'en': 'Cancelled'},
+  'st_returned': {'ar': 'مرتجع', 'en': 'Returned'},
+  'st_failed_delivery': {'ar': 'تعذّر التوصيل، سنتواصل معك', 'en': "Delivery failed, we'll contact you"},
+};
+
+extension L10n on BuildContext {
+  String t(String key) {
+    final lang = watch<AppState>().locale.languageCode;
+    return _strings[key]?[lang] ?? key;
+  }
+
+  bool get isAr => watch<AppState>().locale.languageCode == 'ar';
+
+  /// Picks name_ar / name_en (or any *_ar / *_en pair) from API json.
+  String tr(Map<String, dynamic>? json, [String field = 'name']) {
+    if (json == null) return '';
+    return (json['${field}_${isAr ? 'ar' : 'en'}'] ?? json['${field}_ar'] ?? '').toString();
+  }
+}

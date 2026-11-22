@@ -36,6 +36,7 @@ class BranchPanelProvider extends PanelProvider
             ->brandLogoHeight('2.6rem')
             ->favicon(asset('brand/logo-mark.svg'))
             ->sidebarCollapsibleOnDesktop()
+            ->renderHook(\Filament\View\PanelsRenderHook::HEAD_END, fn () => view('filament.status-colors'))
             ->resources([
                 \App\Filament\Resources\Orders\OrderResource::class,
                 \App\Filament\Resources\Products\ProductResource::class,

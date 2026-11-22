@@ -69,10 +69,17 @@ class CatalogController extends Controller
 
     public function slots(Branch $branch): JsonResponse
     {
+        $cutoff = now()->addHours(3); // time needed to slaughter and prepare
+
         return response()->json(DeliverySlot::where('branch_id', $branch->id)
             ->whereBetween('date', [today(), today()->addDays(14)])
             ->whereColumn('booked', '<', 'capacity')
             ->orderBy('date')->orderBy('starts_at')
-            ->get(['id', 'date', 'starts_at', 'ends_at']));
+            ->get()
+            ->reject(fn (DeliverySlot $s) => $s->date->copy()->setTimeFromTimeString($s->starts_at)->lt($cutoff))
+            ->values()
+            ->map(fn (DeliverySlot $s) => $s->only('id', 'starts_at', 'ends_at') + [
+                'date' => $s->date->toDateString(), 'label_ar' => $s->label(), 'label_en' => $s->labelEn(),
+            ]));
     }
 }

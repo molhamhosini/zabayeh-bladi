@@ -79,7 +79,7 @@ class OrderService
             $vat = round(($subtotal + $deliveryFee) * config('shop.vat_rate') / 100, 2);
 
             $order = Order::create([
-                'number' => 'ZB-'.now()->format('ymd').'-'.Str::upper(Str::random(5)),
+                'number' => 'tmp-'.Str::uuid(),
                 'user_id' => $user->id,
                 'branch_id' => $branch->id,
                 'address_id' => $address->id,
@@ -96,6 +96,8 @@ class OrderService
                 'total' => round($subtotal + $deliveryFee + $vat, 2),
                 'notes' => $data['notes'] ?? null,
             ]);
+            // Short, easy-to-say order numbers: 100001, 100002, ...
+            $order->update(['number' => (string) (100000 + $order->id)]);
             $order->items()->createMany($lines);
             $order->statusLogs()->create(['status' => 'pending', 'user_id' => $user->id]);
             $slot?->increment('booked');

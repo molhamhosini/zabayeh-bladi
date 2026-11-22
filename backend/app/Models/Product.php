@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +16,13 @@ class Product extends Model
 
     protected $casts = ['in_stock' => 'boolean', 'active' => 'boolean', 'price' => 'decimal:2',
         'weight_min_kg' => 'float', 'weight_max_kg' => 'float'];
+
+    protected $appends = ['image_url'];
+
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::get(fn () => $this->image ? Storage::disk('public')->url($this->image) : null);
+    }
 
     public function branch(): BelongsTo
     {

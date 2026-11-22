@@ -115,7 +115,7 @@ class ApiFlowTest extends TestCase
 
         // (1150 + 0 mandi + 30 vacuum) * 2 = 2360; VAT 5% = 118
         $res->assertJsonPath('order.subtotal', '2360.00')->assertJsonPath('order.vat', '118.00')->assertJsonPath('order.total', '2478.00')
-            ->assertJsonPath('order.purpose', 'udhiya')->assertJsonCount(2, 'order.items.0.options');
+            ->assertJsonPath('order.purpose', 'udhiya')->assertJsonPath('order.number', '100001')->assertJsonCount(2, 'order.items.0.options');
         $this->assertSame(1, $slot->fresh()->booked);
 
         $id = $res->json('order.id');
