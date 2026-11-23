@@ -3,5 +3,7 @@
 class Config {
   static const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000/api/v1');
   static const stripeKey = String.fromEnvironment('STRIPE_KEY', defaultValue: '');
+  /// Web previews only: show the card option on web (the Stripe sheet itself runs on iOS/Android).
+  static const previewCard = bool.fromEnvironment('PREVIEW_CARD');
   static const merchantId = 'merchant.ae.zabayehbladi';
 }

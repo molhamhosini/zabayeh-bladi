@@ -15,7 +15,7 @@ import '../widgets/payment_options.dart';
 import 'bnpl_checkout_screen.dart';
 import 'order_screen.dart';
 
-bool get cardPaymentsAvailable => Config.stripeKey.isNotEmpty && !kIsWeb;
+bool get cardPaymentsAvailable => Config.stripeKey.isNotEmpty && (!kIsWeb || Config.previewCard);
 
 /// Pays an order with Stripe's PaymentSheet (cards, Apple Pay, Google Pay). Returns true when paid.
 Future<bool> payWithStripe(BuildContext context, String clientSecret) async {
