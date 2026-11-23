@@ -114,6 +114,16 @@ class DatabaseSeeder extends Seeder
         Banner::create(['title_ar' => 'العقيقة والنذور', 'title_en' => 'Aqiqah & vows', 'subtitle_ar' => 'نذبح ونوزّع عنك أو نوصلها لبيتك', 'subtitle_en' => 'We slaughter and distribute, or deliver home', 'sort' => 2]);
         Banner::create(['title_ar' => 'توصيل مجاني', 'title_en' => 'Free delivery', 'subtitle_ar' => 'في دبي والشارقة وعجمان', 'subtitle_en' => 'In Dubai, Sharjah & Ajman', 'sort' => 3]);
 
+        if (app()->isProduction()) {
+            // Live servers: the admin comes from ADMIN_EMAIL / ADMIN_PASSWORD, and no demo branch login is created.
+            if (blank(env('ADMIN_EMAIL')) || strlen((string) env('ADMIN_PASSWORD')) < 12) {
+                throw new \RuntimeException('Set ADMIN_EMAIL and a strong ADMIN_PASSWORD (12+ characters) in .env before seeding.');
+            }
+            User::create(['name' => 'Admin', 'email' => env('ADMIN_EMAIL'), 'password' => env('ADMIN_PASSWORD'), 'role' => User::ROLE_ADMIN]);
+
+            return;
+        }
+
         User::create(['name' => 'Admin', 'email' => env('ADMIN_EMAIL') ?: 'admin@zabayehbladi.test', 'password' => env('ADMIN_PASSWORD') ?: 'password', 'role' => User::ROLE_ADMIN]);
         User::create(['name' => 'Dubai branch', 'email' => 'dubai@zabayehbladi.test', 'password' => 'password', 'role' => User::ROLE_BRANCH_STAFF, 'branch_id' => $branch->id]);
     }

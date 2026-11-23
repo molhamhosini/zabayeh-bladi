@@ -1,0 +1,40 @@
+# Deploys the Laravel backend + admin over SSH. Runs only when started by hand from the Actions tab.
+# Repository secrets needed (Settings > Secrets and variables > Actions):
+#   SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, SSH_PORT (optional, default 22), DEPLOY_PATH (folder that holds the repo on the server)
+name: Deploy backend
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_sqlite, bcmath, gd, zip
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and deploy on the server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git pull --ff-only origin main
+            bash backend/deploy.sh
