@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../providers/auth_provider.dart';
+import '../providers/location_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import 'location_screen.dart';
@@ -13,7 +15,8 @@ class AccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final auth = context.watch<AuthProvider>();
+    final area = context.watch<LocationProvider>().area;
     final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: Text(context.t('account'))),
@@ -22,8 +25,8 @@ class AccountScreen extends StatelessWidget {
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
             leading: const BrandMark(size: 48),
-            title: Text(state.user?['name'] ?? context.t('appName'), style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-            subtitle: state.user != null ? Directionality(textDirection: TextDirection.ltr, child: Text(state.user!['phone'] ?? '', textAlign: context.isAr ? TextAlign.right : TextAlign.left)) : null,
+            title: Text(auth.user?['name'] ?? context.t('appName'), style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            subtitle: auth.user != null ? Directionality(textDirection: TextDirection.ltr, child: Text(auth.user!['phone'] ?? '', textAlign: context.isAr ? TextAlign.right : TextAlign.left)) : null,
           ),
         ),
         const SizedBox(height: 12),
@@ -32,16 +35,16 @@ class AccountScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.location_on_outlined, color: Brand.maroon),
               title: Text(context.t('deliverTo')),
-              subtitle: Text('${context.tr(state.area?['emirate'])} - ${context.tr(state.area)}'),
+              subtitle: Text('${context.tr(area?['emirate'])} - ${context.tr(area)}'),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationScreen(canPop: true))),
             ),
             ListTile(
               leading: const Icon(Icons.language, color: Brand.maroon),
               title: Text(context.t('language')),
-              onTap: state.toggleLocale,
+              onTap: context.read<SettingsProvider>().toggleLocale,
             ),
-            if (state.loggedIn)
-              ListTile(leading: const Icon(Icons.logout, color: Brand.maroon), title: Text(context.t('logout')), onTap: state.signOut)
+            if (auth.loggedIn)
+              ListTile(leading: const Icon(Icons.logout, color: Brand.maroon), title: Text(context.t('logout')), onTap: auth.signOut)
             else
               ListTile(
                 leading: const Icon(Icons.login, color: Brand.maroon),

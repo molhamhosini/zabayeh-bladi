@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n.dart';
 import '../screens/product_screen.dart';
-import '../state.dart';
+import '../providers/favorites_provider.dart';
 import '../theme.dart';
 import 'brand.dart';
 
@@ -91,12 +91,12 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final favorites = context.watch<FavoritesProvider>();
     final text = Theme.of(context).textTheme;
     final inStock = product['in_stock'] == true;
     final vendor = product['branch']?['vendor'];
     final discount = discountPercent(product);
-    final fav = state.favorites.contains(product['id']);
+    final fav = favorites.contains(product['id']);
     void open() => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductScreen(productId: product['id'])));
 
     return SizedBox(
@@ -124,7 +124,7 @@ class ProductCard extends StatelessWidget {
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => state.toggleFavorite(product['id']),
+                      onTap: () => favorites.toggle(product['id']),
                       child: Padding(
                         padding: const EdgeInsets.all(6),
                         child: Icon(fav ? Icons.favorite : Icons.favorite_border, size: 20, color: fav ? Brand.maroon : Brand.muted),

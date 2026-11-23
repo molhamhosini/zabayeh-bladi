@@ -5,9 +5,14 @@ import 'package:provider/provider.dart';
 
 import '../config.dart';
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/cart_provider.dart';
+import '../providers/location_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
+import '../widgets/payment_options.dart';
+import 'bnpl_checkout_screen.dart';
 import 'order_screen.dart';
 
 bool get cardPaymentsAvailable => Config.stripeKey.isNotEmpty && !kIsWeb;
@@ -55,30 +60,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    _purpose = context.read<AppState>().purpose;
+    _purpose = context.read<CartProvider>().purpose;
+    final methods = context.read<SettingsProvider>().paymentMethods;
+    _payment = methods.firstWhere((m) => m != 'card' || cardPaymentsAvailable, orElse: () => 'cod');
     _load();
   }
 
   Future<void> _load() async {
-    final state = context.read<AppState>();
+    final api = context.read<Api>();
+    final areaId = context.read<LocationProvider>().areaId;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final branchId = state.cartBranchId!;
+      final branchId = context.read<CartProvider>().branchId!;
       final results = await Future.wait([
-        state.api.get('/addresses'),
-        state.api.get('/branches', {'area_id': state.area!['id']}),
-        state.api.get('/branches/$branchId/slots'),
+        api.get('/addresses'),
+        api.get('/branches', {'area_id': areaId}),
+        api.get('/branches/$branchId/slots'),
       ]);
       setState(() {
-        _addresses = (results[0] as List).where((a) => a['area_id'] == state.area!['id']).toList();
+        _addresses = (results[0] as List).where((a) => a['area_id'] == areaId).toList();
         _addressId ??= _addresses.isNotEmpty ? _addresses.first['id'] : null;
         _branch = (results[1] as List).cast<Map>().map(Map<String, dynamic>.from).where((b) => b['id'] == branchId).firstOrNull;
         _slots = results[2] as List;
         _slotId ??= _slots.isNotEmpty ? _slots.first['id'] : null;
-        if (_branch?['accepts_cod'] == false) _payment = 'card';
+        if (_branch?['accepts_cod'] == false && _payment == 'cod') _payment = 'card';
       });
     } catch (e) {
       setState(() => _error = e.toString());
@@ -88,7 +96,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _addAddress() async {
-    final state = context.read<AppState>();
+    final api = context.read<Api>();
+    final area = context.read<LocationProvider>().area;
     final details = TextEditingController();
     final label = TextEditingController();
     final saved = await showModalBottomSheet<bool>(
@@ -98,7 +107,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       builder: (c) => Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(c).viewInsets.bottom),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('${context.tr(state.area?['emirate'])} - ${context.tr(state.area)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text('${context.tr(area?['emirate'])} - ${context.tr(area)}', style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           TextField(controller: label, decoration: InputDecoration(labelText: context.t('addressLabel'))),
           const SizedBox(height: 12),
@@ -110,7 +119,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
     if (saved != true || details.text.trim().isEmpty) return;
     try {
-      final a = await state.api.post('/addresses', {'area_id': state.area!['id'], 'label': label.text, 'details': details.text});
+      final a = await api.post('/addresses', {'area_id': area!['id'], 'label': label.text, 'details': details.text});
       setState(() {
         _addresses.insert(0, a);
         _addressId = a['id'];
@@ -120,10 +129,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  /// Methods the server enabled, minus card on web, minus cash if this branch refuses it.
+  List<String> get _methods => context
+      .watch<SettingsProvider>()
+      .paymentMethods
+      .where((m) => (m != 'card' || cardPaymentsAvailable) && (m != 'cod' || _branch?['accepts_cod'] != false))
+      .toList();
+
   double get _deliveryFee => double.tryParse('${_branch?['delivery_fee'] ?? 0}') ?? 0;
 
   Future<void> _place() async {
-    final state = context.read<AppState>();
+    final api = context.read<Api>();
+    final cart = context.read<CartProvider>();
     final t = context.t;
     if (_addressId == null) {
       showError(context, t('addAddress'));
@@ -131,8 +148,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     setState(() => _placing = true);
     try {
-      final res = await state.api.post('/orders', {
-        'branch_id': state.cartBranchId,
+      final res = await api.post('/orders', {
+        'branch_id': cart.branchId,
         'address_id': _addressId,
         'delivery_slot_id': _slotId,
         'purpose': _purpose,
@@ -140,23 +157,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'donate_to_charity': _donate,
         'payment_method': _payment,
         'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-        'items': [
-          for (final l in state.cart)
-            {
-              'product_id': l.product['id'],
-              'variant_id': l.variant?['id'],
-              'quantity': l.quantity,
-              'option_ids': l.options.map((o) => o['id']).toList(),
-            },
-        ],
+        'items': cart.orderItems,
       });
       final order = res['order'];
-      state.clearCart();
+      cart.clear();
       if (!mounted) return;
       if (_payment == 'card' && res['stripe'] != null) {
         final paid = await payWithStripe(context, res['stripe']['client_secret']);
         if (!mounted) return;
         if (!paid) showError(context, t('paymentFailed'));
+      } else if (res['checkout_url'] != null) {
+        await BnplCheckoutScreen.open(context, res['checkout_url'], _payment);
+        if (!mounted) return;
+      } else if (res['payment_error'] != null) {
+        showError(context, res['payment_error']);
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('orderPlaced')), backgroundColor: Brand.success));
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OrderScreen(orderId: order['id'])));
@@ -169,9 +183,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final cart = context.watch<CartProvider>();
     final text = Theme.of(context).textTheme;
-    final subtotal = state.cartSubtotal;
+    final subtotal = cart.subtotal;
     final vat = (subtotal + _deliveryFee) * .05;
     Widget section(String title, Widget child) => Padding(
           padding: const EdgeInsets.only(top: 20),
@@ -258,24 +272,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   section(
                     context.t('payment'),
-                    Card(
-                      child: Column(children: [
-                        RadioListTile<String>(
-                          value: 'card',
-                          groupValue: _payment,
-                          onChanged: cardPaymentsAvailable ? (v) => setState(() => _payment = v!) : null,
-                          secondary: const Icon(Icons.credit_card),
-                          title: Text(context.t('card')),
-                        ),
-                        if (_branch?['accepts_cod'] != false)
-                          RadioListTile<String>(
-                            value: 'cod',
-                            groupValue: _payment,
-                            onChanged: (v) => setState(() => _payment = v!),
-                            secondary: const Icon(Icons.payments_outlined),
-                            title: Text(context.t('cod')),
-                          ),
-                      ]),
+                    PaymentOptions(
+                      methods: _methods,
+                      value: _payment,
+                      total: subtotal + _deliveryFee + vat,
+                      onChanged: (m) => setState(() => _payment = m),
                     ),
                   ),
                   section(context.t('notes'), TextField(controller: _notes, maxLines: 2)),

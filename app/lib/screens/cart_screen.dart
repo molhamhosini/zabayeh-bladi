@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../providers/auth_provider.dart';
+import '../providers/cart_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/product_card.dart';
@@ -14,8 +15,7 @@ class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
   Future<void> _checkout(BuildContext context) async {
-    final state = context.read<AppState>();
-    if (!state.loggedIn) {
+    if (!context.read<AuthProvider>().loggedIn) {
       final ok = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
       if (ok != true || !context.mounted) return;
     }
@@ -24,11 +24,11 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final cart = context.watch<CartProvider>();
     final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: Text(context.t('cart'))),
-      body: state.cart.isEmpty
+      body: cart.isEmpty
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.shopping_bag_outlined, size: 64, color: Brand.muted),
@@ -38,10 +38,10 @@ class CartScreen extends StatelessWidget {
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: state.cart.length,
+              itemCount: cart.lines.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
-                final line = state.cart[i];
+                final line = cart.lines[i];
                 return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -61,13 +61,13 @@ class CartScreen extends StatelessWidget {
                           Price(line.total),
                         ]),
                       ),
-                      QtyStepper(value: line.quantity, onChanged: (q) => state.setQuantity(line, q)),
+                      QtyStepper(value: line.quantity, onChanged: (q) => cart.setQuantity(line, q)),
                     ]),
                   ),
                 );
               },
             ),
-      bottomNavigationBar: state.cart.isEmpty
+      bottomNavigationBar: cart.isEmpty
           ? null
           : Container(
               color: Colors.white,
@@ -78,7 +78,7 @@ class CartScreen extends StatelessWidget {
                   Row(children: [
                     Text(context.t('subtotal'), style: text.titleMedium),
                     const Spacer(),
-                    Price(state.cartSubtotal),
+                    Price(cart.subtotal),
                   ]),
                   const SizedBox(height: 12),
                   FilledButton(onPressed: () => _checkout(context), child: Text(context.t('checkout'))),

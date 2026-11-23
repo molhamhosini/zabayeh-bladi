@@ -3,7 +3,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/location_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 
@@ -20,7 +22,7 @@ class _LocationScreenState extends State<LocationScreen> {
   String? _message;
 
   Future<void> _useGps() async {
-    final state = context.read<AppState>();
+    final api = context.read<Api>();
     final t = context.t;
     setState(() {
       _locating = true;
@@ -34,7 +36,7 @@ class _LocationScreenState extends State<LocationScreen> {
         return;
       }
       final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium));
-      final res = await state.api.get('/location/resolve', {'lat': pos.latitude, 'lng': pos.longitude});
+      final res = await api.get('/location/resolve', {'lat': pos.latitude, 'lng': pos.longitude});
       if (res['served'] == true) {
         _done(Map<String, dynamic>.from(res['area']));
       } else {
@@ -48,7 +50,7 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 
   void _done(Map<String, dynamic> area) {
-    context.read<AppState>().setArea(area);
+    context.read<LocationProvider>().setArea(area);
     if (widget.canPop) Navigator.pop(context);
   }
 
@@ -95,7 +97,7 @@ class _LocationScreenState extends State<LocationScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(onPressed: _pickManually, icon: const Icon(Icons.map_outlined), label: Text(context.t('pickManually'))),
-            TextButton(onPressed: context.read<AppState>().toggleLocale, child: Text(context.t('language'))),
+            TextButton(onPressed: context.read<SettingsProvider>().toggleLocale, child: Text(context.t('language'))),
             const SizedBox(height: 16),
           ]),
         ),
@@ -117,7 +119,7 @@ class _AreaPickerState extends State<_AreaPicker> {
   @override
   void initState() {
     super.initState();
-    _emirates = context.read<AppState>().api.get('/emirates').then((v) => v as List);
+    _emirates = context.read<Api>().get('/emirates').then((v) => v as List);
   }
 
   @override
@@ -128,7 +130,7 @@ class _AreaPickerState extends State<_AreaPicker> {
         future: _emirates,
         builder: (context, snap) {
           if (snap.hasError) {
-            return ErrorRetry(message: context.t('error'), onRetry: () => setState(() => _emirates = context.read<AppState>().api.get('/emirates').then((v) => v as List)));
+            return ErrorRetry(message: context.t('error'), onRetry: () => setState(() => _emirates = context.read<Api>().get('/emirates').then((v) => v as List)));
           }
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final list = _emirate == null ? snap.data! : (_emirate!['areas'] as List);

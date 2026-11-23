@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/cart_provider.dart';
+import '../providers/favorites_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/product_card.dart';
@@ -34,7 +36,7 @@ class _ProductScreenState extends State<ProductScreen> {
 
   Future<void> _load() async {
     try {
-      final p = Map<String, dynamic>.from(await context.read<AppState>().api.get('/products/${widget.productId}'));
+      final p = Map<String, dynamic>.from(await context.read<Api>().get('/products/${widget.productId}'));
       setState(() {
         _product = p;
         _error = null;
@@ -64,7 +66,7 @@ class _ProductScreenState extends State<ProductScreen> {
       _chosenOptions.fold<double>(0, (s, o) => s + double.parse('${o['extra_price']}'));
 
   Future<void> _add() async {
-    final state = context.read<AppState>();
+    final cart = context.read<CartProvider>();
     final t = context.t;
     if (_variants.isNotEmpty && _variant == null) {
       showError(context, t('chooseWeight'));
@@ -76,7 +78,7 @@ class _ProductScreenState extends State<ProductScreen> {
         return;
       }
     }
-    if (state.cartBranchId != null && state.cartBranchId != _product!['branch_id']) {
+    if (cart.conflictsWith(_product!['branch_id'])) {
       final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
@@ -89,12 +91,12 @@ class _ProductScreenState extends State<ProductScreen> {
         ),
       );
       if (ok != true) return;
-      state.clearCart();
+      cart.clear();
     }
     final product = Map<String, dynamic>.from(_product!)
       ..remove('option_groups')
       ..remove('variants');
-    state.addToCart(CartLine(product: product, variant: _variant, options: _chosenOptions, quantity: _qty));
+    cart.add(CartLine(product: product, variant: _variant, options: _chosenOptions, quantity: _qty));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('added')), backgroundColor: Brand.success));
     Navigator.pop(context);
@@ -103,12 +105,12 @@ class _ProductScreenState extends State<ProductScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final state = context.watch<AppState>();
+    final favorites = context.watch<FavoritesProvider>();
     if (_error != null) return Scaffold(appBar: AppBar(), body: ErrorRetry(message: _error!, onRetry: _load));
     if (_product == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
     final p = _product!;
     final inStock = p['in_stock'] == true;
-    final fav = state.favorites.contains(p['id']);
+    final fav = favorites.contains(p['id']);
     final price = double.parse('${_variant?['price'] ?? p['price']}');
     final old = double.tryParse('${_variant?['compare_at_price'] ?? ''}');
 
@@ -120,7 +122,7 @@ class _ProductScreenState extends State<ProductScreen> {
           _roundAction(Icons.ios_share_rounded, () {
             Clipboard.setData(ClipboardData(text: '${context.tr(p)} - ${context.t('appName')}'));
           }),
-          _roundAction(fav ? Icons.favorite : Icons.favorite_border, () => state.toggleFavorite(p['id']), color: fav ? Brand.maroon : null),
+          _roundAction(fav ? Icons.favorite : Icons.favorite_border, () => favorites.toggle(p['id']), color: fav ? Brand.maroon : null),
           const SizedBox(width: 8),
         ],
       ),

@@ -26,7 +26,7 @@ class Order extends Model
     ];
 
     protected $fillable = ['number', 'user_id', 'branch_id', 'address_id', 'delivery_slot_id', 'purpose', 'beneficiary_name',
-        'donate_to_charity', 'status', 'payment_method', 'payment_status', 'stripe_payment_intent_id',
+        'donate_to_charity', 'status', 'payment_method', 'payment_status', 'stripe_payment_intent_id', 'payment_reference',
         'subtotal', 'delivery_fee', 'vat', 'total', 'notes', 'driver_id'];
 
     protected $casts = ['donate_to_charity' => 'boolean', 'subtotal' => 'decimal:2', 'delivery_fee' => 'decimal:2',

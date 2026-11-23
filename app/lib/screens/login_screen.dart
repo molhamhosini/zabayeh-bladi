@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../providers/auth_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 
@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _send() async {
     setState(() => _busy = true);
     try {
-      await context.read<AppState>().api.post('/auth/otp/request', {'phone': _phone.text});
+      await context.read<AuthProvider>().requestCode(_phone.text);
       setState(() => _codeSent = true);
     } catch (e) {
       if (mounted) showError(context, e);
@@ -34,11 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _verify() async {
-    final state = context.read<AppState>();
     setState(() => _busy = true);
     try {
-      final res = await state.api.post('/auth/otp/verify', {'phone': _phone.text, 'code': _code.text, 'name': _name.text});
-      state.signIn(res['token'], Map<String, dynamic>.from(res['user']));
+      await context.read<AuthProvider>().verifyCode(_phone.text, _code.text, name: _name.text);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) showError(context, e);

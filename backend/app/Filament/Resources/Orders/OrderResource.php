@@ -64,6 +64,8 @@ class OrderResource extends Resource
 
     public const PURPOSES = ['normal' => 'عادي', 'udhiya' => 'أضحية', 'aqiqah' => 'عقيقة', 'sadaqah' => 'صدقة'];
 
+    public const METHODS = ['cod' => 'كاش', 'card' => 'Stripe', 'tabby' => 'تابي', 'tamara' => 'تمارا'];
+
     public const PAYMENT = ['unpaid' => 'غير مدفوع', 'paid' => 'مدفوع', 'refunded' => 'مسترد', 'failed' => 'فشل الدفع'];
 
     public static function getNavigationBadge(): ?string
@@ -114,7 +116,8 @@ class OrderResource extends Resource
                 ]),
             ]),
             Section::make('الدفع')->columns(4)->schema([
-                TextEntry::make('payment_method')->label('طريقة الدفع')->formatStateUsing(fn ($state) => $state === 'card' ? 'Stripe (بطاقة / Apple Pay)' : 'كاش عند الاستلام'),
+                TextEntry::make('payment_method')->label('طريقة الدفع')->formatStateUsing(fn ($state) => self::METHODS[$state] ?? $state),
+                TextEntry::make('payment_reference')->label('مرجع الدفع (تابي / تمارا)')->placeholder('-')->copyable(),
                 TextEntry::make('payment_status')->label('حالة الدفع')->badge()
                     ->formatStateUsing(fn ($state) => self::PAYMENT[$state] ?? $state)->color(fn ($state) => $state === 'paid' ? 'success' : 'warning'),
                 TextEntry::make('subtotal')->label('المنتجات')->money('AED'),
@@ -145,7 +148,7 @@ class OrderResource extends Resource
                 TextColumn::make('slot.date')->label('موعد التوصيل')->date('Y-m-d')->placeholder('أقرب وقت')->sortable()
                     ->description(fn (Order $r) => $r->slot?->label()),
                 TextColumn::make('payment_status')->label('الدفع')->badge()
-                    ->formatStateUsing(fn ($state, Order $r) => (self::PAYMENT[$state] ?? $state).' - '.($r->payment_method === 'card' ? 'Stripe' : 'كاش'))
+                    ->formatStateUsing(fn ($state, Order $r) => (self::PAYMENT[$state] ?? $state).' - '.(self::METHODS[$r->payment_method] ?? $r->payment_method))
                     ->color(fn ($state) => $state === 'paid' ? 'success' : 'warning'),
                 TextColumn::make('total')->label('الإجمالي')->money('AED')->sortable(),
                 TextColumn::make('created_at')->label('وقت الطلب')->since()->sortable(),
@@ -155,7 +158,7 @@ class OrderResource extends Resource
             ->poll('30s')
             ->filters([
                 SelectFilter::make('status')->label('الحالة')->options(self::STATUSES)->multiple(),
-                SelectFilter::make('payment_method')->label('طريقة الدفع')->options(['cod' => 'كاش', 'card' => 'Stripe']),
+                SelectFilter::make('payment_method')->label('طريقة الدفع')->options(self::METHODS),
                 SelectFilter::make('payment_status')->label('حالة الدفع')->options(self::PAYMENT),
                 SelectFilter::make('purpose')->label('النوع')->options(self::PURPOSES),
                 SelectFilter::make('branch_id')->label('الفرع')->relationship('branch', 'name_ar')->hidden(fn () => static::inBranchPanel()),

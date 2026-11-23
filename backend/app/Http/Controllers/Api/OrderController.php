@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\OrderService;
+use App\Services\Payments\Bnpl;
+use App\Services\Payments\BnplException;
 use App\Services\StripeGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +35,7 @@ class OrderController extends Controller
             'purpose' => ['nullable', Rule::in(Order::PURPOSES)],
             'beneficiary_name' => ['nullable', 'required_if:purpose,aqiqah', 'string', 'max:100'],
             'donate_to_charity' => ['boolean'],
-            'payment_method' => ['required', Rule::in(['cod', 'card'])],
+            'payment_method' => ['required', Rule::in(['cod', 'card', 'tabby', 'tamara'])],
             'notes' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1', 'max:20'],
             'items.*.product_id' => ['required', 'integer'],
@@ -43,22 +45,57 @@ class OrderController extends Controller
             'items.*.option_ids.*' => ['integer'],
         ]);
 
-        $order = $orders->place($request->user(), $data);
-        $response = ['order' => $order];
-        if ($order->payment_method === 'card') {
-            $response['stripe'] = ['client_secret' => $stripe->clientSecretFor($order), 'publishable_key' => config('shop.stripe.publishable')];
+        if (Bnpl::isBnpl($data['payment_method']) && ! Bnpl::for($data['payment_method'])->isConfigured()) {
+            return response()->json(['message' => 'طريقة الدفع غير متاحة حالياً', 'errors' => ['payment_method' => ['طريقة الدفع غير متاحة حالياً']]], 422);
         }
 
-        return response()->json($response, 201);
+        $order = $orders->place($request->user(), $data);
+
+        return response()->json(['order' => $order] + $this->paymentInstructions($order, $stripe), 201);
+    }
+
+    /** What the app must do next to collect payment: Stripe sheet or hosted Tabby/Tamara page. */
+    private function paymentInstructions(Order $order, StripeGateway $stripe): array
+    {
+        if ($order->payment_method === 'card') {
+            return ['stripe' => ['client_secret' => $stripe->clientSecretFor($order), 'publishable_key' => config('shop.stripe.publishable')]];
+        }
+        if (Bnpl::isBnpl($order->payment_method)) {
+            try {
+                return ['checkout_url' => Bnpl::for($order->payment_method)->checkoutUrl($order)];
+            } catch (BnplException $e) {
+                // The order stays unpaid; the app shows the reason and lets the customer pay another way.
+                return ['payment_error' => $e->getMessage()];
+            }
+        }
+
+        return [];
     }
 
     /** Lets the app retry card payment for an unpaid order. */
     public function pay(Request $request, Order $order, StripeGateway $stripe): JsonResponse
     {
         abort_unless($order->user_id === $request->user()->id, 404);
-        abort_if($order->payment_method !== 'card' || $order->payment_status === 'paid' || $order->status === 'cancelled', 422, 'لا يمكن الدفع لهذا الطلب');
+        abort_if($order->payment_method === 'cod' || $order->payment_status === 'paid' || $order->status === 'cancelled', 422, 'لا يمكن الدفع لهذا الطلب');
 
-        return response()->json(['client_secret' => $stripe->clientSecretFor($order), 'publishable_key' => config('shop.stripe.publishable')]);
+        if ($order->payment_method === 'card') {
+            return response()->json(['client_secret' => $stripe->clientSecretFor($order), 'publishable_key' => config('shop.stripe.publishable')]);
+        }
+
+        return response()->json($this->paymentInstructions($order, $stripe));
+    }
+
+    /** Lets the customer switch an unpaid order to another payment method (e.g. Tabby declined -> cash). */
+    public function changePayment(Request $request, Order $order, StripeGateway $stripe): JsonResponse
+    {
+        abort_unless($order->user_id === $request->user()->id, 404);
+        abort_if($order->payment_status === 'paid' || $order->status === 'cancelled', 422, 'لا يمكن تغيير طريقة الدفع');
+        $method = $request->validate(['payment_method' => ['required', Rule::in(['cod', 'card', 'tabby', 'tamara'])]])['payment_method'];
+        abort_if($method === 'cod' && ! $order->branch->accepts_cod, 422, 'الدفع عند الاستلام غير متاح لهذا الفرع.');
+
+        $order->update(['payment_method' => $method, 'payment_status' => 'unpaid', 'payment_reference' => null, 'stripe_payment_intent_id' => null]);
+
+        return response()->json(['order' => $order->fresh()] + $this->paymentInstructions($order, $stripe));
     }
 
     public function cancel(Request $request, Order $order): JsonResponse

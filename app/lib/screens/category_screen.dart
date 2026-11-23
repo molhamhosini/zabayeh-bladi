@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/cart_provider.dart';
+import '../providers/location_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/product_card.dart';
@@ -35,7 +37,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final areaId = context.watch<AppState>().area?['id'] as int?;
+    final areaId = context.watch<LocationProvider>().areaId;
     if (areaId != _areaId) {
       _areaId = areaId;
       _load();
@@ -43,7 +45,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   Future<void> _load() async {
-    final api = context.read<AppState>().api;
+    final api = context.read<Api>();
     setState(() {
       _loading = true;
       _error = null;
@@ -66,7 +68,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final purpose = context.watch<AppState>().purpose;
+    final purpose = context.watch<CartProvider>().purpose;
     final title = switch (purpose) {
       'udhiya' => context.t('udhiyaSection'),
       'aqiqah' => context.t('aqiqahSection'),

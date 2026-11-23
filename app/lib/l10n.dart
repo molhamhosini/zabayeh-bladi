@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'state.dart';
+import 'providers/settings_provider.dart';
 
 /// Small in-app dictionary. Arabic is the primary language.
 const _strings = <String, Map<String, String>>{
@@ -80,6 +80,11 @@ const _strings = <String, Map<String, String>>{
   'noSlots': {'ar': 'لا توجد مواعيد متاحة، سنتواصل معك لتحديد الموعد', 'en': "No slots available, we'll call you to schedule"},
   'payment': {'ar': 'طريقة الدفع', 'en': 'Payment method'},
   'card': {'ar': 'دفع إلكتروني (بطاقة / Apple Pay)', 'en': 'Online (Card / Apple Pay)'},
+  'tabby': {'ar': 'تابي - قسّمها على 4 دفعات', 'en': 'Tabby - split in 4'},
+  'tamara': {'ar': 'تمارا - قسّمها على 4 دفعات', 'en': 'Tamara - split in 4'},
+  'splitIn4': {'ar': '4 دفعات بدون فوائد،', 'en': '4 interest-free payments,'},
+  'perInstalment': {'ar': 'للدفعة', 'en': 'each'},
+  'changePayment': {'ar': 'تغيير طريقة الدفع', 'en': 'Change payment method'},
   'cod': {'ar': 'كاش عند الاستلام', 'en': 'Cash on delivery'},
   'notes': {'ar': 'ملاحظات للملحمة', 'en': 'Notes for the butcher'},
   'placeOrder': {'ar': 'تأكيد الطلب', 'en': 'Place order'},
@@ -111,11 +116,11 @@ const _strings = <String, Map<String, String>>{
 
 extension L10n on BuildContext {
   String t(String key) {
-    final lang = watch<AppState>().locale.languageCode;
+    final lang = watch<SettingsProvider>().locale.languageCode;
     return _strings[key]?[lang] ?? key;
   }
 
-  bool get isAr => watch<AppState>().locale.languageCode == 'ar';
+  bool get isAr => watch<SettingsProvider>().isArabic;
 
   /// Picks name_ar / name_en (or any *_ar / *_en pair) from API json.
   String tr(Map<String, dynamic>? json, [String field = 'name']) {

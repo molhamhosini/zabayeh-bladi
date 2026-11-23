@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
+import '../widgets/payment_options.dart';
+import 'bnpl_checkout_screen.dart';
 import 'checkout_screen.dart';
 import 'orders_screen.dart';
 
@@ -29,7 +32,7 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Future<void> _load() async {
     try {
-      final o = await context.read<AppState>().api.get('/orders/${widget.orderId}');
+      final o = await context.read<Api>().get('/orders/${widget.orderId}');
       setState(() {
         _order = Map<String, dynamic>.from(o);
         _error = null;
@@ -41,7 +44,7 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Future<void> _cancel() async {
     try {
-      await context.read<AppState>().api.post('/orders/${widget.orderId}/cancel');
+      await context.read<Api>().post('/orders/${widget.orderId}/cancel');
       _load();
     } catch (e) {
       if (mounted) showError(context, e);
@@ -50,13 +53,52 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Future<void> _pay() async {
     try {
-      final res = await context.read<AppState>().api.post('/orders/${widget.orderId}/pay');
+      final method = _order!['payment_method'] as String;
+      final res = await context.read<Api>().post('/orders/${widget.orderId}/pay');
       if (!mounted) return;
-      final ok = await payWithStripe(context, res['client_secret']);
-      if (!mounted) return;
-      if (!ok) showError(context, context.t('paymentFailed'));
+      await _collect(method, res);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  /// Runs whatever the server asked for: Stripe sheet, Tabby/Tamara page, or shows why it can't.
+  Future<void> _collect(String method, Map res) async {
+    if (res['client_secret'] != null || res['stripe'] != null) {
+      final ok = await payWithStripe(context, res['client_secret'] ?? res['stripe']['client_secret']);
+      if (mounted && !ok) showError(context, context.t('paymentFailed'));
       await Future.delayed(const Duration(seconds: 2)); // let the webhook land
-      _load();
+    } else if (res['checkout_url'] != null) {
+      await BnplCheckoutScreen.open(context, res['checkout_url'], method);
+    } else if (res['payment_error'] != null) {
+      showError(context, res['payment_error']);
+    }
+    if (mounted) _load();
+  }
+
+  Future<void> _changePayment() async {
+    final methods = context.read<SettingsProvider>().paymentMethods.where((m) => m != 'card' || cardPaymentsAvailable).toList();
+    var chosen = _order!['payment_method'] as String;
+    final total = double.parse('${_order!['total']}');
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setSheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            PaymentOptions(methods: methods, value: chosen, total: total, onChanged: (m) => setSheet(() => chosen = m)),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: () => Navigator.pop(c, chosen), child: Text(context.t('save'))),
+          ]),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    try {
+      final res = await context.read<Api>().post('/orders/${widget.orderId}/payment-method', {'payment_method': picked});
+      if (!mounted) return;
+      await _collect(picked, res);
     } catch (e) {
       if (mounted) showError(context, e);
     }
@@ -70,7 +112,8 @@ class _OrderScreenState extends State<OrderScreen> {
     final o = _order!;
     final status = o['status'] as String;
     final current = _steps.indexOf(status);
-    final unpaidCard = o['payment_method'] == 'card' && o['payment_status'] != 'paid' && status != 'cancelled';
+    final unpaid = o['payment_method'] != 'cod' && o['payment_status'] != 'paid' && status != 'cancelled';
+    final canChangePayment = o['payment_status'] != 'paid' && status != 'cancelled' && status != 'delivered';
 
     return Scaffold(
       appBar: AppBar(title: Text('${context.t('order')} ${o['number']}')),
@@ -118,12 +161,17 @@ class _OrderScreenState extends State<OrderScreen> {
                 _row(context.t('vat'), Price(double.parse('${o['vat']}'), style: text.bodyMedium)),
                 _row(context.t('total'), Price(double.parse('${o['total']}'))),
                 _row(context.t('payment'),
-                    Text('${context.t(o['payment_method'] == 'card' ? 'card' : 'cod')} · ${context.t(o['payment_status'] == 'paid' ? 'paid' : 'unpaid')}')),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      PaymentBadge(o['payment_method']),
+                      Text('  ${context.t(o['payment_status'] == 'paid' ? 'paid' : 'unpaid')}'),
+                    ])),
               ]),
             ),
           ),
           const SizedBox(height: 16),
-          if (unpaidCard && cardPaymentsAvailable) FilledButton(onPressed: _pay, child: Text(context.t('payNow'))),
+          if (unpaid && (o['payment_method'] != 'card' || cardPaymentsAvailable))
+            FilledButton(onPressed: _pay, child: Text(context.t('payNow'))),
+          if (canChangePayment) TextButton(onPressed: _changePayment, child: Text(context.t('changePayment'))),
           if (status == 'pending') TextButton(onPressed: _cancel, child: Text(context.t('cancelOrder'), style: const TextStyle(color: Brand.maroon))),
           const SizedBox(height: 8),
           Center(child: StatusPill(status: status)),

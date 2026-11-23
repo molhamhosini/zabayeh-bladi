@@ -25,6 +25,12 @@ class CatalogController extends Controller
         $with = ['branch:id,vendor_id,name_ar,name_en', 'branch.vendor:id,name_ar,name_en,logo,is_own', 'category:id,slug,name_ar,name_en'];
 
         return response()->json([
+            'payment_methods' => array_values(array_filter([
+                'card' => filled(config('shop.stripe.secret')) ? 'card' : null,
+                'tabby' => app(\App\Services\Payments\TabbyGateway::class)->isConfigured() ? 'tabby' : null,
+                'tamara' => app(\App\Services\Payments\TamaraGateway::class)->isConfigured() ? 'tamara' : null,
+                'cod' => 'cod',
+            ])),
             'banners' => Banner::live()->get(['id', 'title_ar', 'title_en', 'subtitle_ar', 'subtitle_en', 'image', 'category_id']),
             'categories' => Category::where('active', true)->orderBy('sort')->get(['id', 'slug', 'name_ar', 'name_en', 'image']),
             'offers' => Product::availableIn($areaId)->where('in_stock', true)

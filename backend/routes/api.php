@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BnplController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\OrderController;
@@ -23,6 +24,8 @@ Route::prefix('v1')->group(function () {
     Route::get('branches/{branch}/slots', [CatalogController::class, 'slots']);
 
     Route::post('webhooks/stripe', StripeWebhookController::class);
+    Route::post('webhooks/{gateway}', [BnplController::class, 'webhook'])->whereIn('gateway', ['tabby', 'tamara'])->name('payments.webhook');
+    Route::get('payments/{gateway}/return/{order}', [BnplController::class, 'return'])->whereIn('gateway', ['tabby', 'tamara'])->name('payments.return');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
@@ -36,5 +39,6 @@ Route::prefix('v1')->group(function () {
         Route::get('orders/{order}', [OrderController::class, 'show']);
         Route::post('orders/{order}/pay', [OrderController::class, 'pay']);
         Route::post('orders/{order}/cancel', [OrderController::class, 'cancel']);
+        Route::post('orders/{order}/payment-method', [OrderController::class, 'changePayment']);
     });
 });

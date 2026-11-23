@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/cart_provider.dart';
+import '../providers/location_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/product_card.dart';
@@ -25,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final cartCount = context.watch<CartProvider>().count;
     final pages = [const _Home(), const CategoryScreen(embedded: true), const OrdersScreen(), const AccountScreen(), const CartScreen()];
     return Scaffold(
       body: IndexedStack(index: _tab, children: pages),
@@ -41,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(icon: const Icon(Icons.receipt_long_outlined), selectedIcon: const Icon(Icons.receipt_long), label: context.t('myOrders')),
           NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: context.t('account')),
           NavigationDestination(
-            icon: Badge(isLabelVisible: state.cartCount > 0, label: Text('${state.cartCount}'), child: const Icon(Icons.shopping_cart_outlined)),
+            icon: Badge(isLabelVisible: cartCount > 0, label: Text('$cartCount'), child: const Icon(Icons.shopping_cart_outlined)),
             selectedIcon: const Icon(Icons.shopping_cart),
             label: context.t('cart'),
           ),
@@ -65,7 +68,7 @@ class _HomeState extends State<_Home> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final areaId = context.watch<AppState>().area?['id'] as int?;
+    final areaId = context.watch<LocationProvider>().areaId;
     if (areaId != _areaId) {
       _areaId = areaId;
       _load();
@@ -74,7 +77,9 @@ class _HomeState extends State<_Home> {
 
   Future<void> _load() async {
     try {
-      final d = await context.read<AppState>().api.get('/home', {'area_id': _areaId});
+      final settings = context.read<SettingsProvider>();
+      final d = await context.read<Api>().get('/home', {'area_id': _areaId});
+      settings.setPaymentMethods(List<String>.from(d['payment_methods'] ?? const ['cod']));
       setState(() {
         _data = Map<String, dynamic>.from(d);
         _error = null;
@@ -85,13 +90,13 @@ class _HomeState extends State<_Home> {
   }
 
   void _openCategory({int? categoryId, String? query, String purpose = 'normal'}) {
-    context.read<AppState>().setPurpose(purpose);
+    context.read<CartProvider>().setPurpose(purpose);
     Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryScreen(categoryId: categoryId, query: query)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final area = context.watch<LocationProvider>().area;
     final text = Theme.of(context).textTheme;
     if (_error != null && _data == null) return SafeArea(child: ErrorRetry(message: _error!, onRetry: _load));
     if (_data == null) return const Center(child: CircularProgressIndicator());
@@ -137,7 +142,7 @@ class _HomeState extends State<_Home> {
                 const SizedBox(width: 6),
                 Text('${context.t('deliverTo')}: ', style: text.titleSmall),
                 Expanded(
-                  child: Text('${context.tr(state.area?['emirate'])} ${context.tr(state.area)}',
+                  child: Text('${context.tr(area?['emirate'])} ${context.tr(area)}',
                       overflow: TextOverflow.ellipsis, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
                 ),
                 const Icon(Icons.keyboard_arrow_down_rounded),

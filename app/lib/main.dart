@@ -3,13 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api.dart';
 import 'config.dart';
+import 'providers/auth_provider.dart';
+import 'providers/cart_provider.dart';
+import 'providers/favorites_provider.dart';
+import 'providers/location_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/location_screen.dart';
-import 'state.dart';
 import 'theme.dart';
-import 'widgets/brand.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,9 +23,24 @@ Future<void> main() async {
     Stripe.merchantIdentifier = Config.merchantId;
     await Stripe.instance.applySettings();
   }
-  final state = AppState();
-  await state.load();
-  runApp(ChangeNotifierProvider.value(value: state, child: const ZabayehApp()));
+  final prefs = await SharedPreferences.getInstance();
+  final api = Api();
+
+  final cart = CartProvider(prefs);
+  // Branches deliver to specific areas, so a new area starts a new cart.
+  final location = LocationProvider(prefs)..onAreaChanged = (_, _) => cart.clear();
+
+  runApp(MultiProvider(
+    providers: [
+      Provider<Api>.value(value: api),
+      ChangeNotifierProvider(create: (_) => SettingsProvider(prefs, api)),
+      ChangeNotifierProvider(create: (_) => AuthProvider(prefs, api)),
+      ChangeNotifierProvider.value(value: location),
+      ChangeNotifierProvider.value(value: cart),
+      ChangeNotifierProvider(create: (_) => FavoritesProvider(prefs)),
+    ],
+    child: const ZabayehApp(),
+  ));
 }
 
 class ZabayehApp extends StatelessWidget {
@@ -28,23 +48,20 @@ class ZabayehApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final locale = context.select<SettingsProvider, Locale>((s) => s.locale);
+    final hasArea = context.select<LocationProvider, bool>((l) => l.hasArea);
     return MaterialApp(
       title: 'ذبائح بلادي',
       debugShowCheckedModeBanner: false,
-      locale: state.locale,
+      locale: locale,
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: buildTheme(state.locale),
-      home: !state.ready
-          ? const Scaffold(body: Center(child: BrandMark(size: 96)))
-          : state.area == null
-              ? const LocationScreen()
-              : const HomeScreen(),
+      theme: buildTheme(locale),
+      home: hasArea ? const HomeScreen() : const LocationScreen(),
     );
   }
 }

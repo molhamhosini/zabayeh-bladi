@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n.dart';
-import '../state.dart';
+import '../api.dart';
+import '../providers/auth_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import 'login_screen.dart';
@@ -21,22 +22,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final loggedIn = context.watch<AppState>().loggedIn;
+    final loggedIn = context.watch<AuthProvider>().loggedIn;
     if (loggedIn != _wasLoggedIn) {
       _wasLoggedIn = loggedIn;
       if (loggedIn) _reload();
     }
   }
 
-  void _reload() => setState(() => _orders = context.read<AppState>().api.get('/orders').then((r) => (r as Map)['data'] as List));
+  void _reload() => setState(() => _orders = context.read<Api>().get('/orders').then((r) => (r as Map)['data'] as List));
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final loggedIn = context.watch<AuthProvider>().loggedIn;
     final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: Text(context.t('myOrders'))),
-      body: !state.loggedIn
+      body: !loggedIn
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),

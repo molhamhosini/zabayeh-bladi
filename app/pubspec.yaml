@@ -44,6 +44,8 @@ dependencies:
   flutter_svg: ^2.5.0
   flutter_localizations:
     sdk: flutter
+  webview_flutter: ^4.14.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
