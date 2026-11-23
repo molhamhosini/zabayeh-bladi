@@ -5,7 +5,8 @@
 #   SSH_HOST, SSH_PORT (Hostinger: 65002), SSH_USER, and SSH_PASSWORD or SSH_PRIVATE_KEY
 #   DB_DATABASE, DB_USERNAME, DB_PASSWORD   (hPanel > Databases)
 #   ADMIN_EMAIL, ADMIN_PASSWORD             (first admin login, password 12+ characters)
-# Repository variable (same page > Variables): DOMAIN, e.g. poszabayehbladi.com
+#   ...or all of them in ONE secret named ZABAYEHBLADI_SECRET, one per line as KEY = value
+# Repository variable (same page > Variables): DOMAIN (defaults to poszabayehbladi.com)
 name: Deploy
 
 on:
@@ -33,8 +34,38 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     env:
-      DOMAIN: ${{ vars.DOMAIN }}
+      DOMAIN: ${{ vars.DOMAIN || 'poszabayehbladi.com' }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      DB_DATABASE: ${{ secrets.DB_DATABASE }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     steps:
+      - name: Read combined secret (ZABAYEHBLADI_SECRET)
+        env:
+          COMBINED: ${{ secrets.ZABAYEHBLADI_SECRET }}
+        run: |
+          [ -n "$COMBINED" ] || exit 0
+          allowed=" DOMAIN SSH_HOST SSH_PORT SSH_USER SSH_PASSWORD DB_DATABASE DB_USERNAME DB_PASSWORD ADMIN_EMAIL ADMIN_PASSWORD "
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            [[ "$line" == *=* ]] || continue
+            key="${line%%=*}"; value="${line#*=}"
+            key="$(echo "$key" | tr -d '[:space:]')"
+            value="$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            [[ "$allowed" == *" $key "* ]] || continue
+            [ -n "${!key}" ] && [ "$key" != DOMAIN ] && continue   # a dedicated secret wins
+            echo "::add-mask::$value"
+            delim="EOF_$(openssl rand -hex 8)"
+            printf '%s<<%s\n%s\n%s\n' "$key" "$delim" "$value" "$delim" >> "$GITHUB_ENV"
+            echo "Read $key"
+          done <<< "$COMBINED"
+
       - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
@@ -53,38 +84,18 @@ jobs:
           [ -n "$DOMAIN" ] || missing="$missing DOMAIN(variable)"
           [ -n "$SSH_PASSWORD$SSH_PRIVATE_KEY" ] || missing="$missing SSH_PASSWORD/SSH_PRIVATE_KEY"
           if [ -n "$missing" ]; then echo "::error::Missing:$missing"; exit 1; fi
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DB_DATABASE: ${{ secrets.DB_DATABASE }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Set up SSH
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
+          SSH_PORT="${SSH_PORT:-65002}"; echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
           sudo apt-get install -y -qq sshpass rsync >/dev/null
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           if [ -n "$SSH_PRIVATE_KEY" ]; then printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy; fi
 
       - name: Upload code and run deployment on the server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSHPASS: ${{ secrets.SSH_PASSWORD }}
-          DB_DATABASE: ${{ secrets.DB_DATABASE }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
+          export SSHPASS="$SSH_PASSWORD"
           if [ -f ~/.ssh/id_deploy ]; then SSH="ssh -p $SSH_PORT -i $HOME/.ssh/id_deploy"; WRAP=""; else SSH="ssh -p $SSH_PORT"; WRAP="sshpass -e"; fi
           TARGET="domains/$DOMAIN/zabayeh-bladi"
           $WRAP $SSH "$SSH_USER@$SSH_HOST" "mkdir -p $TARGET"
