@@ -10,6 +10,7 @@ use App\Models\DeliverySlot;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CatalogController extends Controller
 {
@@ -93,6 +94,11 @@ class CatalogController extends Controller
 
     public function slots(Branch $branch): JsonResponse
     {
+        // Keep two weeks of the standard delivery windows open, topped up once a day per branch
+        // (no cron needed). To close a window, set its capacity to 0 in the admin instead of deleting it.
+        Cache::remember("slots-topped-up:{$branch->id}:".today()->toDateString(), now()->endOfDay(),
+            fn () => DeliverySlot::generateFor($branch->id, 15) + 1);
+
         $cutoff = now()->addHours(3); // time needed to slaughter and prepare
 
         return response()->json(DeliverySlot::where('branch_id', $branch->id)
