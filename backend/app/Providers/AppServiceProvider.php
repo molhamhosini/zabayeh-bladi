@@ -11,7 +11,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(\App\Services\SmsSender::class, \App\Services\LogSmsSender::class);
+        $this->app->bind(\App\Services\SmsSender::class, fn () => \App\Services\Sms::msg91Active()
+            ? new \App\Services\Msg91SmsSender
+            : new \App\Services\LogSmsSender);
     }
 
     /**
@@ -19,6 +21,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->app->bind(\App\Services\SmsSender::class, \App\Services\LogSmsSender::class);
+        //
     }
 }

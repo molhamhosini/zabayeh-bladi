@@ -90,9 +90,9 @@ class ApiFlowTest extends TestCase
         {
             public function __construct(public ?string &$sent) {}
 
-            public function send(string $phone, string $message): void
+            public function sendOtp(string $phone, string $code): void
             {
-                $this->sent = $message;
+                $this->sent = $code;
             }
         });
 

@@ -4,11 +4,11 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 
-/** Development SMS driver: writes the message to the log. Swap for a real provider (e.g. Twilio, Unifonic) in production. */
+/** Development driver (SMS_DRIVER=log): writes the code to the log instead of sending it. */
 class LogSmsSender implements SmsSender
 {
-    public function send(string $phone, string $message): void
+    public function sendOtp(string $phone, string $code): void
     {
-        Log::info("SMS to {$phone}: {$message}");
+        Log::info("SMS to {$phone}: رمز التحقق في ذبائح بلادي: {$code}");
     }
 }

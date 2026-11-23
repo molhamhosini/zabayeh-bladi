@@ -21,7 +21,7 @@ class OtpService
             'expires_at' => now()->addMinutes(config('shop.otp.ttl_minutes')),
         ]);
 
-        $this->sms->send($phone, "رمز التحقق في ذبائح بلادي: {$code}");
+        $this->sms->sendOtp($phone, $code);
     }
 
     public function verify(string $phone, string $code): bool

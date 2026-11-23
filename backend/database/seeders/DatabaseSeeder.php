@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Vendor;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
@@ -82,6 +83,12 @@ class DatabaseSeeder extends Seeder
             ['veal', 'عجل محلي', 'Local veal', 'عجل محلي يُذبح حسب الطلب.', 'Local veal slaughtered to order.', false, [
                 [80, 100, '', '', 4500, null], [100, 130, '', '', 5600, null]]],
         ];
+        // Product photos shipped with the repo (database/seeders/images) are copied to the public disk.
+        $photos = [];
+        foreach (['naimi' => 'naimi.jpg', 'goat' => 'goat-local.jpg'] as $cat => $file) {
+            Storage::disk('public')->put('products/'.$file, file_get_contents(__DIR__.'/images/'.$file));
+            $photos[$cat] = 'products/'.$file;
+        }
         foreach ($catalog as $i => [$cat, $ar, $en, $dar, $den, $featured, $variants]) {
             $p = Product::create(['branch_id' => $branch->id, 'category_id' => $categories[$cat]->id, 'name_ar' => $ar, 'name_en' => $en,
                 'description_ar' => $dar.' يُذبح ويُجهّز يوم التوصيل.', 'description_en' => $den.' Prepared on delivery day.',
@@ -89,6 +96,9 @@ class DatabaseSeeder extends Seeder
             foreach ($variants as $j => [$min, $max, $agear, $ageen, $price, $old]) {
                 $p->variants()->create(['weight_min_kg' => $min, 'weight_max_kg' => $max, 'age_ar' => $agear ?: null, 'age_en' => $ageen ?: null,
                     'price' => $price, 'compare_at_price' => $old, 'sort' => $j]);
+            }
+            if (isset($photos[$cat])) {
+                $p->update(['image' => $photos[$cat]]);
             }
             $p->syncFromVariants();
             $p->optionGroups()->attach($cat === 'veal' ? array_slice($groupIds, 0, 2) : $groupIds);

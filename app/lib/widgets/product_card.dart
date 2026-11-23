@@ -28,7 +28,13 @@ class ProductImage extends StatelessWidget {
       ),
     );
     if (url == null || url!.isEmpty) return placeholder;
-    return Image.network(url!, height: height, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder);
+    // Photos are shot on white, so show them whole on white rather than cropping.
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.white,
+      child: Image.network(url!, fit: BoxFit.contain, errorBuilder: (_, __, ___) => placeholder),
+    );
   }
 }
 
