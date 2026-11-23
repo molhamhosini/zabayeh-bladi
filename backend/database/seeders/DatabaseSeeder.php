@@ -7,6 +7,7 @@ use App\Models\Banner;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\DeliverySlot;
+use App\Models\DeliveryWindow;
 use App\Models\Emirate;
 use App\Models\OptionGroup;
 use App\Models\Product;
@@ -104,11 +105,13 @@ class DatabaseSeeder extends Seeder
             $p->optionGroups()->attach($cat === 'veal' ? array_slice($groupIds, 0, 2) : $groupIds);
         }
 
-        for ($d = 1; $d <= 14; $d++) {
+        // Standard delivery windows for every emirate; edit per emirate in the admin (أوقات التوصيل).
+        foreach (Emirate::all() as $emirate) {
             foreach (DeliverySlot::DEFAULT_WINDOWS as [$s, $e]) {
-                DeliverySlot::create(['branch_id' => $branch->id, 'date' => today()->addDays($d), 'starts_at' => $s, 'ends_at' => $e, 'capacity' => 15]);
+                DeliveryWindow::create(['emirate_id' => $emirate->id, 'starts_at' => $s.':00', 'ends_at' => $e.':00', 'capacity' => 15]);
             }
         }
+        DeliverySlot::generateFor($branch->id, 15);
 
         Banner::create(['title_ar' => 'ذبيحتك طازجة في نفس اليوم', 'title_en' => 'Same-day fresh slaughter', 'subtitle_ar' => 'نعيمي وحري ونجدي من مزارع الإمارات', 'subtitle_en' => 'Naimi, Harri & Najdi from UAE farms', 'category_id' => $categories['naimi']->id, 'sort' => 1]);
         Banner::create(['title_ar' => 'العقيقة والنذور', 'title_en' => 'Aqiqah & vows', 'subtitle_ar' => 'نذبح ونوزّع عنك أو نوصلها لبيتك', 'subtitle_en' => 'We slaughter and distribute, or deliver home', 'sort' => 2]);

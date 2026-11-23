@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Area;
 use App\Models\Banner;
 use App\Models\Branch;
 use App\Models\Category;
@@ -92,16 +93,21 @@ class CatalogController extends Controller
             ]));
     }
 
-    public function slots(Branch $branch): JsonResponse
+    public function slots(Request $request, Branch $branch): JsonResponse
     {
-        // Keep two weeks of the standard delivery windows open, topped up once a day per branch
-        // (no cron needed). To close a window, set its capacity to 0 in the admin instead of deleting it.
-        Cache::remember("slots-topped-up:{$branch->id}:".today()->toDateString(), now()->endOfDay(),
+        // Keep two weeks of slots open from each emirate's delivery windows: synced once a day per branch,
+        // and again whenever a window is edited (no cron needed).
+        $version = Cache::get('delivery-windows-version', '0');
+        Cache::remember("slots-synced:{$branch->id}:".today()->toDateString().":{$version}", now()->endOfDay(),
             fn () => DeliverySlot::generateFor($branch->id, 15) + 1);
+
+        // Slots follow the customer's emirate (taken from their area).
+        $emirateId = $request->filled('area_id') ? Area::whereKey($request->integer('area_id'))->value('emirate_id') : null;
 
         $cutoff = now()->addHours(3); // time needed to slaughter and prepare
 
         return response()->json(DeliverySlot::where('branch_id', $branch->id)
+            ->when($emirateId, fn ($q) => $q->where('emirate_id', $emirateId))
             ->whereBetween('date', [today(), today()->addDays(14)])
             ->whereColumn('booked', '<', 'capacity')
             ->orderBy('date')->orderBy('starts_at')

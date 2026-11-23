@@ -42,6 +42,9 @@ class OrderService
             if (! empty($data['delivery_slot_id'])) {
                 $slot = DeliverySlot::where('branch_id', $branch->id)->lockForUpdate()->find($data['delivery_slot_id'])
                     ?? $this->fail('delivery_slot_id', 'موعد التوصيل غير صالح.');
+                if ($slot->emirate_id && (int) $slot->emirate_id !== (int) $address->area?->emirate_id) {
+                    $this->fail('delivery_slot_id', 'موعد التوصيل لا يخص منطقتك، اختر موعداً آخر.');
+                }
                 if ($slot->date->lt(today()) || $slot->isFull()) {
                     $this->fail('delivery_slot_id', 'موعد التوصيل لم يعد متاحاً، اختر موعداً آخر.');
                 }

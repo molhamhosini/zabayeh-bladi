@@ -78,7 +78,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final results = await Future.wait([
         api.get('/addresses'),
         api.get('/branches', {'area_id': areaId}),
-        api.get('/branches/$branchId/slots'),
+        api.get('/branches/$branchId/slots', {'area_id': areaId}),
       ]);
       setState(() {
         _addresses = (results[0] as List).where((a) => a['area_id'] == areaId).toList();

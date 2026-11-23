@@ -32,6 +32,11 @@ class ApiFlowTest extends TestCase
         return Area::where('name_en', 'Mirdif')->first();
     }
 
+    private function dubaiSlot(): DeliverySlot
+    {
+        return DeliverySlot::where('emirate_id', $this->dubaiArea()->emirate_id)->whereDate('date', today()->addDay())->orderBy('starts_at')->first();
+    }
+
     private function customer(): User
     {
         return User::create(['name' => 'Test', 'phone' => '+971501234567']);
@@ -48,7 +53,7 @@ class ApiFlowTest extends TestCase
         return array_merge([
             'branch_id' => $product->branch_id,
             'address_id' => $address->id,
-            'delivery_slot_id' => DeliverySlot::first()->id,
+            'delivery_slot_id' => $this->dubaiSlot()->id,
             'payment_method' => 'cod',
             'items' => [['product_id' => $product->id, 'variant_id' => $variant->id, 'quantity' => 2, 'option_ids' => [$cut->id, $pack->id]]],
         ], $overrides);
@@ -110,7 +115,7 @@ class ApiFlowTest extends TestCase
     public function test_order_is_priced_on_the_server_with_options_and_vat(): void
     {
         $user = $this->customer();
-        $slot = DeliverySlot::first();
+        $slot = $this->dubaiSlot();
 
         $res = $this->actingAs($user)->postJson('/api/v1/orders', $this->orderPayload($user, ['purpose' => 'udhiya']))->assertCreated();
 
@@ -151,7 +156,7 @@ class ApiFlowTest extends TestCase
         $this->postJson('/api/v1/orders', array_merge($payload, ['address_id' => $theirs->id]))->assertStatus(422);
 
         // Full slot.
-        $slot = DeliverySlot::first();
+        $slot = $this->dubaiSlot();
         $slot->update(['booked' => $slot->capacity]);
         $this->postJson('/api/v1/orders', $payload)->assertStatus(422)->assertJsonValidationErrors('delivery_slot_id');
 

@@ -21,6 +21,8 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TimePicker;
 use Filament\Actions\DeleteAction;
+use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Builder;
 
 class DeliverySlotResource extends Resource
 {
@@ -40,10 +42,12 @@ class DeliverySlotResource extends Resource
     {
         return $schema->components([
             Select::make('branch_id')->label('الفرع')->relationship('branch', 'name_ar')->required()->hidden(fn () => static::inBranchPanel()),
+            Select::make('emirate_id')->label('الإمارة')->relationship('emirate', 'name_ar')->required(),
             DatePicker::make('date')->label('التاريخ')->required()->minDate(today()),
             TimePicker::make('starts_at')->label('من')->seconds(false)->required(),
             TimePicker::make('ends_at')->label('إلى')->seconds(false)->required()->after('starts_at'),
-            TextInput::make('capacity')->label('عدد الطلبات المسموح')->numeric()->minValue(1)->default(10)->required(),
+            TextInput::make('capacity')->label('عدد الطلبات المسموح')->numeric()->minValue(0)->default(10)->required()
+                ->helperText('اجعلها 0 لإغلاق هذا الموعد.'),
         ]);
     }
 
@@ -52,12 +56,16 @@ class DeliverySlotResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('branch.name_ar')->label('الفرع')->hidden(fn () => static::inBranchPanel()),
+                TextColumn::make('emirate.name_ar')->label('الإمارة')->badge(),
                 TextColumn::make('date')->label('التاريخ')->date('Y-m-d l')->sortable(),
                 TextColumn::make('starts_at')->label('الوقت')->formatStateUsing(fn ($state, DeliverySlot $r) => $r->label()),
                 TextColumn::make('booked')->label('المحجوز')->formatStateUsing(fn ($state, DeliverySlot $r) => "{$r->booked} / {$r->capacity}")
                     ->color(fn (DeliverySlot $r) => $r->isFull() ? 'danger' : 'success'),
             ])
-            ->modifyQueryUsing(fn ($q) => $q->whereDate('date', '>=', today()))
+            ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('date', '>=', today()))
+            ->filters([
+                SelectFilter::make('emirate_id')->label('الإمارة')->relationship('emirate', 'name_ar'),
+            ])
             ->defaultSort('date')
             ->recordActions([EditAction::make(), DeleteAction::make()->visible(fn (DeliverySlot $r) => $r->booked === 0)]);
     }

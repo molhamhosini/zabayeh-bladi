@@ -32,18 +32,40 @@ class DeliverySlot extends Model
         return $fmt($this->starts_at).' - '.$fmt($this->ends_at);
     }
 
-    /** Creates the default windows for a branch for the coming days, skipping ones that already exist. */
-    public static function generateFor(int $branchId, int $days, int $capacity = 10): int
+    /**
+     * Keeps a branch's upcoming slots in line with the delivery windows of each emirate it delivers to:
+     * creates missing slots for the coming $days, and removes future unbooked slots whose window was
+     * changed or switched off. Booked slots are never touched. Returns the number of slots created.
+     */
+    public static function generateFor(int $branchId, int $days, ?int $capacity = null): int
     {
+        $branch = Branch::with('areas:id,emirate_id')->findOrFail($branchId);
+        $emirateIds = $branch->areas->pluck('emirate_id')->push($branch->emirate_id)->filter()->unique();
+        $windows = DeliveryWindow::whereIn('emirate_id', $emirateIds)->where('active', true)->get()->groupBy('emirate_id');
+
         $created = 0;
-        for ($d = 0; $d < $days; $d++) {
-            foreach (self::DEFAULT_WINDOWS as [$s, $e]) {
+        foreach ($emirateIds as $emirateId) {
+            $ranges = ($windows[$emirateId] ?? collect())
+                ->map(fn (DeliveryWindow $w) => [substr($w->starts_at, 0, 5), substr($w->ends_at, 0, 5), $w->capacity]);
+
+            $upcoming = static::where('branch_id', $branchId)->where('emirate_id', $emirateId)
+                ->whereDate('date', '>=', today())->get();
+            foreach ($upcoming as $slot) {
+                $matches = $ranges->contains(fn ($r) => $r[0] === substr($slot->starts_at, 0, 5) && $r[1] === substr($slot->ends_at, 0, 5));
+                if (! $matches && $slot->booked === 0) {
+                    $slot->delete();
+                }
+            }
+
+            for ($d = 0; $d < $days; $d++) {
                 $date = today()->addDays($d);
-                $exists = static::where('branch_id', $branchId)->whereDate('date', $date)
-                    ->where('starts_at', 'like', $s.'%')->exists();
-                if (! $exists) {
-                    static::create(['branch_id' => $branchId, 'date' => $date, 'starts_at' => $s.':00', 'ends_at' => $e.':00', 'capacity' => $capacity]);
-                    $created++;
+                foreach ($ranges as [$s, $e, $cap]) {
+                    $exists = $upcoming->contains(fn ($slot) => $slot->date->isSameDay($date) && substr($slot->starts_at, 0, 5) === $s);
+                    if (! $exists) {
+                        static::create(['branch_id' => $branchId, 'emirate_id' => $emirateId, 'date' => $date,
+                            'starts_at' => $s.':00', 'ends_at' => $e.':00', 'capacity' => $capacity ?? $cap]);
+                        $created++;
+                    }
                 }
             }
         }
@@ -51,13 +73,18 @@ class DeliverySlot extends Model
         return $created;
     }
 
-    protected $fillable = ['branch_id', 'date', 'starts_at', 'ends_at', 'capacity', 'booked'];
+    protected $fillable = ['branch_id', 'emirate_id', 'date', 'starts_at', 'ends_at', 'capacity', 'booked'];
 
     protected $casts = ['date' => 'date:Y-m-d'];
 
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function emirate(): BelongsTo
+    {
+        return $this->belongsTo(Emirate::class);
     }
 
     public function isFull(): bool
