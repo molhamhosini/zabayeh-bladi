@@ -1,10 +1,17 @@
-# Deploys the Laravel backend + admin over SSH. Runs only when started by hand from the Actions tab.
-# Repository secrets needed (Settings > Secrets and variables > Actions):
-#   SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, SSH_PORT (optional, default 22), DEPLOY_PATH (folder that holds the repo on the server)
-name: Deploy backend
+# Deploys the Laravel backend + dashboards to Hostinger over SSH. Start it by hand: Actions > Deploy > Run workflow.
+# The first run backs up the site that is on the domain, sets up .env, and seeds the database. See DEPLOY.md.
+#
+# Repository secrets (Settings > Secrets and variables > Actions > Secrets):
+#   SSH_HOST, SSH_PORT (Hostinger: 65002), SSH_USER, and SSH_PASSWORD or SSH_PRIVATE_KEY
+#   DB_DATABASE, DB_USERNAME, DB_PASSWORD   (hPanel > Databases)
+#   ADMIN_EMAIL, ADMIN_PASSWORD             (first admin login, password 12+ characters)
+# Repository variable (same page > Variables): DOMAIN, e.g. poszabayehbladi.com
+name: Deploy
 
 on:
   workflow_dispatch:
+
+concurrency: deploy
 
 jobs:
   test:
@@ -25,16 +32,72 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    env:
+      DOMAIN: ${{ vars.DOMAIN }}
     steps:
-      - name: Pull and deploy on the server
-        uses: appleboy/ssh-action@v1.2.0
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
-            cd "${{ secrets.DEPLOY_PATH }}"
-            git pull --ff-only origin main
-            bash backend/deploy.sh
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, gd, zip
+      - name: Build release (vendor + dashboard assets)
+        working-directory: backend
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+          cp .env.example .env && php artisan key:generate && php artisan filament:assets && rm .env
+
+      - name: Check settings
+        run: |
+          missing=""
+          for v in SSH_HOST SSH_USER DB_DATABASE DB_USERNAME DB_PASSWORD; do [ -n "${!v}" ] || missing="$missing $v"; done
+          [ -n "$DOMAIN" ] || missing="$missing DOMAIN(variable)"
+          [ -n "$SSH_PASSWORD$SSH_PRIVATE_KEY" ] || missing="$missing SSH_PASSWORD/SSH_PRIVATE_KEY"
+          if [ -n "$missing" ]; then echo "::error::Missing:$missing"; exit 1; fi
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+      - name: Set up SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          sudo apt-get install -y -qq sshpass rsync >/dev/null
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "$SSH_PRIVATE_KEY" ]; then printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy; fi
+
+      - name: Upload code and run deployment on the server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [ -f ~/.ssh/id_deploy ]; then SSH="ssh -p $SSH_PORT -i $HOME/.ssh/id_deploy"; WRAP=""; else SSH="ssh -p $SSH_PORT"; WRAP="sshpass -e"; fi
+          TARGET="domains/$DOMAIN/zabayeh-bladi"
+          $WRAP $SSH "$SSH_USER@$SSH_HOST" "mkdir -p $TARGET"
+          $WRAP rsync -az --delete -e "$SSH" \
+            --exclude '/.git/' --exclude '/app/' --exclude 'backend/.env' --exclude 'backend/storage/' \
+            --exclude 'backend/database/database.sqlite' --exclude 'backend/public/storage' \
+            ./ "$SSH_USER@$SSH_HOST:$TARGET/"
+          # storage/ holds uploads and logs: create its skeleton once, never overwrite it.
+          $WRAP rsync -az --ignore-existing -e "$SSH" backend/storage/ "$SSH_USER@$SSH_HOST:$TARGET/backend/storage/" \
+            --exclude 'logs/*.log' --exclude 'app/public/*' --include '*/' --include '.gitignore' --exclude '*'
+          # Secrets go over stdin, never on the command line.
+          {
+            printf 'export DOMAIN=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q ADMIN_EMAIL=%q ADMIN_PASSWORD=%q\n' \
+              "$DOMAIN" "$DB_DATABASE" "$DB_USERNAME" "$DB_PASSWORD" "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+            cat backend/deploy/remote.sh
+          } | $WRAP $SSH "$SSH_USER@$SSH_HOST" 'bash -s'

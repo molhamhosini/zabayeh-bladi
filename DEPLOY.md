@@ -6,7 +6,23 @@
 - **نسخة احتياطية من النظام الحالي**: ملفات الموقع + تصدير قاعدة البيانات (phpMyAdmin > Export أو `mysqldump`). احتفظ بها خارج السيرفر.
 - المتطلبات: PHP 8.3+ مع الإضافات `mbstring, intl, pdo_mysql, bcmath, gd, zip, fileinfo`، وComposer، وMySQL 8 أو MariaDB 10.6+، وSSL على الدومين.
 
-## الإعداد لأول مرة
+## Hostinger (الطريقة المعتمدة): زر النشر في GitHub
+1. **hPanel > المواقع > الدومين > Advanced > SSH Access**: فعّل SSH وانسخ IP والمنفذ (عادة 65002) واسم المستخدم وكلمة المرور.
+2. **hPanel > Databases > Management**: أنشئ قاعدة MySQL جديدة ومستخدماً لها، واحفظ الاسم والمستخدم وكلمة المرور.
+3. **hPanel > Advanced > PHP Configuration**: اختر PHP 8.3 أو أحدث.
+4. في GitHub: **Settings > Secrets and variables > Actions**
+   - في **Secrets** أضف: `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_PASSWORD`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (12 حرفاً على الأقل)
+   - في **Variables** أضف: `DOMAIN` = `poszabayehbladi.com`
+5. من تبويب **Actions** اختر **Deploy** ثم **Run workflow**.
+
+أول تشغيل يقوم بـ:
+- نسخة احتياطية من الموقع الموجود على الدومين في `~/backups/` (الملفات، وقاعدة بياناته إن وُجد ملف `.env` له)، ونقل المجلد القديم إلى `public_html_old_<التاريخ>`.
+- إنشاء `.env` للإنتاج، وجعل `public_html` يشير إلى `backend/public`.
+- إنشاء الجداول والبيانات الأساسية وحساب المدير.
+
+كل تشغيل بعد ذلك يرفع الكود الجديد ويحدّث قاعدة البيانات فقط، ولا يلمس الصور المرفوعة ولا `.env`.
+
+## الإعداد اليدوي (سيرفر آخر)
 ```bash
 git clone https://github.com/molhamhosini/zabayeh-bladi.git
 cd zabayeh-bladi/backend
@@ -31,7 +47,7 @@ composer install --no-dev --optimize-autoloader
 php artisan key:generate
 php artisan migrate --force
 php artisan db:seed --force     # الإمارات والمناطق والأقسام وخيارات التجهيز وحساب المدير
-bash deploy.sh
+bash deploy/update.sh
 ```
 - اجعل جذر الدومين (Document Root) يشير إلى `zabayeh-bladi/backend/public`.
 - صلاحيات الكتابة: `backend/storage` و`backend/bootstrap/cache`.
@@ -49,7 +65,5 @@ bash deploy.sh
 - MSG91: من لوحة الإدارة > الإعدادات > رسائل SMS.
 
 ## التحديثات بعد ذلك
-- يدوياً على السيرفر: `git pull && bash backend/deploy.sh`
-- أو تلقائياً من GitHub: أضف في المستودع **Settings > Secrets and variables > Actions** القيم
-  `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `SSH_PORT`, `DEPLOY_PATH`
-  ثم من تبويب **Actions** شغّل **Deploy backend**. يشغّل الاختبارات أولاً ثم ينشر.
+- على Hostinger: من تبويب **Actions** شغّل **Deploy** مرة أخرى. يشغّل الاختبارات أولاً ثم ينشر.
+- على سيرفر فيه git وcomposer: `git pull && bash backend/deploy/update.sh`

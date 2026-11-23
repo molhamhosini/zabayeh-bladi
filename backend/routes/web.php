@@ -2,6 +2,5 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// The domain serves the API and the dashboards; the site root opens the admin login.
+Route::redirect('/', '/admin');
