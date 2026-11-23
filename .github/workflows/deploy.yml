@@ -112,3 +112,18 @@ jobs:
               "$DOMAIN" "$DB_DATABASE" "$DB_USERNAME" "$DB_PASSWORD" "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
             cat backend/deploy/remote.sh
           } | $WRAP $SSH "$SSH_USER@$SSH_HOST" 'bash -s'
+
+      - name: Health check
+        run: |
+          ok=1
+          for path in /admin/login /api/v1/home?area_id=1; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DOMAIN$path" || echo 000)
+            echo "$path -> $code"; [ "$code" = 200 ] || ok=0
+          done
+          if [ "$ok" = 0 ]; then
+            if [ -f ~/.ssh/id_deploy ]; then SSH="ssh -p $SSH_PORT -i $HOME/.ssh/id_deploy"; WRAP=""; else SSH="ssh -p $SSH_PORT"; WRAP="sshpass -e"; fi
+            export SSHPASS="$SSH_PASSWORD"
+            echo "Last application errors:"
+            $WRAP $SSH "$SSH_USER@$SSH_HOST" "cd domains/$DOMAIN && ls -la public_html | head -3; grep -h 'production.ERROR' zabayeh-bladi/backend/storage/logs/*.log 2>/dev/null | tail -5 | cut -c1-400; tail -5 ~/logs/*error* 2>/dev/null | cut -c1-300" || true
+            exit 1
+          fi
