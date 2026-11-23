@@ -123,7 +123,19 @@ jobs:
           if [ "$ok" = 0 ]; then
             if [ -f ~/.ssh/id_deploy ]; then SSH="ssh -p $SSH_PORT -i $HOME/.ssh/id_deploy"; WRAP=""; else SSH="ssh -p $SSH_PORT"; WRAP="sshpass -e"; fi
             export SSHPASS="$SSH_PASSWORD"
-            echo "Last application errors:"
-            $WRAP $SSH "$SSH_USER@$SSH_HOST" "cd domains/$DOMAIN && ls -la public_html | head -3; grep -h 'production.ERROR' zabayeh-bladi/backend/storage/logs/*.log 2>/dev/null | tail -5 | cut -c1-400; tail -5 ~/logs/*error* 2>/dev/null | cut -c1-300" || true
+            echo "Response body:"; curl -s --max-time 20 "https://$DOMAIN/admin/login" | head -c 600; echo
+            echo "Server diagnostics:"
+            $WRAP $SSH "$SSH_USER@$SSH_HOST" 'bash -s' <<DIAG || true
+          cd domains/$DOMAIN/zabayeh-bladi/backend
+          ls -ld storage storage/logs storage/framework/* bootstrap/cache
+          ls -la storage/logs | tail -3
+          grep -h -E 'production\.(ERROR|CRITICAL)' storage/logs/*.log 2>/dev/null | tail -5 | cut -c1-500
+          for f in public/error_log ../../public_html/error_log ~/logs/error_log; do [ -f "\$f" ] && { echo "== \$f"; tail -5 "\$f" | cut -c1-400; }; done
+          php -r 'echo "cli php ", PHP_VERSION, "\n";'
+          cat public/.htaccess | head -3
+          echo '<?php echo "web php ", PHP_VERSION;' > public/zb-ver.php
+          DIAG
+            curl -s --max-time 20 "https://$DOMAIN/zb-ver.php"; echo
+            $WRAP $SSH "$SSH_USER@$SSH_HOST" "rm -f domains/$DOMAIN/zabayeh-bladi/backend/public/zb-ver.php" || true
             exit 1
           fi
