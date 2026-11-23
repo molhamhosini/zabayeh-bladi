@@ -47,3 +47,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Theme.AppCompat for the launch theme (required by flutter_stripe).
+    implementation("androidx.appcompat:appcompat:1.7.0")
+}
