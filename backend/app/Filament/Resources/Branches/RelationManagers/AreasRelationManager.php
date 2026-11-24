@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Branches\RelationManagers;
 
+use App\Models\Area;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -10,6 +11,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AreasRelationManager extends RelationManager
 {
@@ -37,7 +39,8 @@ class AreasRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()->label('إضافة منطقة')->preloadRecordSelect()->multiple()
-                    ->recordSelectOptionsQuery(fn ($q) => $q->with('emirate'))
+                    ->recordSelectOptionsQuery(fn (Builder $query) => $query->with('emirate'))
+                    ->recordTitle(fn (Area $record): string => trim(($record->emirate?->name_ar ? $record->emirate->name_ar.' - ' : '').$record->name_ar))
                     ->schema(fn (AttachAction $action) => [
                         $action->getRecordSelect(),
                         TextInput::make('delivery_fee')->label('رسوم التوصيل')->numeric()->default(0)->required(),
