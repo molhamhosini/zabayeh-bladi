@@ -17,7 +17,16 @@ class ViewOrder extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        $actions = [];
+        $actions = [
+            'invoice' => Action::make('invoice')
+                ->label('طباعة الفاتورة')->icon('heroicon-o-printer')->color('gray')
+                ->url(fn (Order $record) => route('orders.invoice', [$record, 'print' => 1]))
+                ->openUrlInNewTab(),
+            'receipt' => Action::make('receipt')
+                ->label('إيصال 80مم')->icon('heroicon-o-receipt-percent')->color('gray')
+                ->url(fn (Order $record) => route('orders.invoice', [$record, 'size' => '80mm', 'print' => 1]))
+                ->openUrlInNewTab(),
+        ];
         foreach (Order::TRANSITIONS as $to) {
             foreach ($to as $status) {
                 $actions[$status] ??= Action::make("to_$status")

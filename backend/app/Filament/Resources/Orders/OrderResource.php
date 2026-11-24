@@ -7,6 +7,7 @@ use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Models\Order;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -175,7 +176,12 @@ class OrderResource extends Resource
                     ])),
                 Filter::make('today')->label('توصيل اليوم')->query(fn (Builder $q) => $q->whereHas('slot', fn ($s) => $s->whereDate('date', today()))),
             ])
-            ->recordActions([ViewAction::make()]);
+            ->recordActions([
+                ViewAction::make(),
+                Action::make('invoice')->label('فاتورة')->icon('heroicon-o-printer')->color('gray')
+                    ->url(fn (Order $record) => route('orders.invoice', [$record, 'print' => 1]))
+                    ->openUrlInNewTab(),
+            ]);
     }
 
     public static function applyDeliveryDate(Builder $q, array $data): Builder
