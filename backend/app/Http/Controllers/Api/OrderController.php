@@ -66,6 +66,11 @@ class OrderController extends Controller
             } catch (BnplException $e) {
                 // The order stays unpaid; the app shows the reason and lets the customer pay another way.
                 return ['payment_error' => $e->getMessage()];
+            } catch (\Throwable $e) {
+                // Network/provider outage: the order exists, so never answer 500 (the app would retry and duplicate it).
+                report($e);
+
+                return ['payment_error' => 'تعذّر الاتصال بخدمة الدفع، يمكنك إعادة المحاولة من صفحة الطلب.'];
             }
         }
 

@@ -74,7 +74,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _error = null;
     });
     try {
-      final branchId = context.read<CartProvider>().branchId!;
+      final branchId = context.read<CartProvider>().branchId;
+      if (branchId == null) return;
       final results = await Future.wait([
         api.get('/addresses'),
         api.get('/branches', {'area_id': areaId}),
@@ -139,14 +140,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _deliveryFee => double.tryParse('${_branch?['delivery_fee'] ?? 0}') ?? 0;
 
   Future<void> _place() async {
+    if (_placing) return; // a second tap before the button rebuilds must not send a duplicate order
     final api = context.read<Api>();
     final cart = context.read<CartProvider>();
     final t = context.t;
+    if (cart.isEmpty) {
+      showError(context, t('emptyCart'));
+      Navigator.of(context).pop();
+      return;
+    }
     if (_addressId == null) {
       showError(context, t('addAddress'));
       return;
     }
-    setState(() => _placing = true);
+    _placing = true;
+    setState(() {});
+    Map<String, dynamic>? order;
     try {
       final res = await api.post('/orders', {
         'branch_id': cart.branchId,
@@ -159,8 +168,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
         'items': cart.orderItems,
       });
-      final order = res['order'];
-      cart.clear();
+      order = Map<String, dynamic>.from(res['order']);
       if (!mounted) return;
       if (_payment == 'card' && res['stripe'] != null) {
         final paid = await payWithStripe(context, res['stripe']['client_secret']);
@@ -171,13 +179,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (!mounted) return;
       } else if (res['payment_error'] != null) {
         showError(context, res['payment_error']);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('orderPlaced')), backgroundColor: Brand.success));
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('orderPlaced')), backgroundColor: Brand.success));
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OrderScreen(orderId: order['id'])));
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
-      if (mounted) setState(() => _placing = false);
+      // Once the server has the order, always leave checkout for the order page and empty the cart,
+      // even if a payment step failed (the order page lets the customer pay again).
+      if (order != null) {
+        if (mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OrderScreen(orderId: order!['id'])));
+        cart.clear();
+      } else {
+        _placing = false;
+        if (mounted) setState(() {});
+      }
     }
   }
 
@@ -198,7 +214,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t('checkout'))),
-      body: _loading
+      body: cart.isEmpty && !_placing
+          ? Center(child: Text(context.t('emptyCart'), style: text.titleMedium?.copyWith(color: Brand.muted)))
+          : _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? ErrorRetry(message: _error!, onRetry: _load)
@@ -294,7 +312,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                 ]),
-      bottomNavigationBar: _loading || _error != null
+      bottomNavigationBar: _loading || _error != null || (cart.isEmpty && !_placing)
           ? null
           : Container(
               color: Colors.white,
