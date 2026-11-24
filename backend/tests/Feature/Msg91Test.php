@@ -22,6 +22,7 @@ class Msg91Test extends TestCase
             'shop.sms.driver' => 'msg91',
             'shop.sms.msg91.auth_key' => 'test-auth-key',
             'shop.sms.msg91.template_id' => 'tmpl_123',
+            'shop.sms.msg91.api' => 'flow',
         ]);
     }
 
@@ -64,6 +65,19 @@ class Msg91Test extends TestCase
 
         $this->actingAs($admin)->get('/admin/sms-settings')->assertOk()->assertSee('Template Id');
         $this->actingAs($staff)->get('/admin/sms-settings')->assertForbidden();
+    }
+
+    public function test_otp_api_is_the_default_and_sends_the_code(): void
+    {
+        Http::fake(['control.msg91.com/*' => Http::response(['type' => 'success', 'request_id' => 'abc'])]);
+        config(['shop.sms.msg91.api' => 'otp']);
+
+        app(SmsSender::class)->sendOtp('+971501234567', '482913');
+
+        Http::assertSent(fn (Request $r) => str_starts_with($r->url(), 'https://control.msg91.com/api/v5/otp?')
+            && $r->hasHeader('authkey', 'test-auth-key')
+            && str_contains($r->url(), 'template_id=tmpl_123') && str_contains($r->url(), 'mobile=971501234567')
+            && str_contains($r->url(), 'otp=482913'));
     }
 
     public function test_msg91_error_is_reported(): void

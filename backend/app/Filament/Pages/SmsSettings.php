@@ -47,6 +47,7 @@ class SmsSettings extends Page
             'active' => Sms::msg91Active() ? '1' : '0',
             'template_id' => $msg91['template_id'],
             'otp_variable' => $msg91['otp_variable'],
+            'api' => $msg91['api'],
             'auth_key' => null,
         ]);
     }
@@ -76,11 +77,21 @@ class SmsSettings extends Page
                             ->revealable()
                             ->placeholder($hasKey ? '•••••••• (محفوظ، اتركه فارغاً للإبقاء عليه)' : 'Auth key')
                             ->required(fn ($get) => $get('active') === '1' && ! $hasKey),
+                        Radio::make('api')
+                            ->label('نوع القالب في MSG91')
+                            ->options([
+                                'otp' => 'قالب OTP (نص القالب فيه ##OTP##) — الأكثر شيوعاً',
+                                'flow' => 'قالب SMS Flow (متغيّر مخصص)',
+                            ])
+                            ->default('otp')
+                            ->live()
+                            ->required(),
                         TextInput::make('otp_variable')
                             ->label('اسم متغيّر الرمز في القالب')
                             ->helperText('مثلاً إذا كان نص القالب "رمز التحقق: ##otp##" فالمتغيّر هو otp.')
                             ->default('otp')
-                            ->required(),
+                            ->visible(fn ($get) => $get('api') === 'flow')
+                            ->required(fn ($get) => $get('api') === 'flow'),
                     ]),
             ]);
     }
@@ -106,7 +117,10 @@ class SmsSettings extends Page
 
         Setting::put('sms.msg91.active', $data['active']);
         Setting::put('sms.msg91.template_id', $data['template_id']);
-        Setting::put('sms.msg91.otp_variable', $data['otp_variable']);
+        Setting::put('sms.msg91.api', $data['api']);
+        if (filled($data['otp_variable'] ?? null)) {
+            Setting::put('sms.msg91.otp_variable', $data['otp_variable']);
+        }
         if (filled($data['auth_key'])) {
             Setting::put('sms.msg91.auth_key', $data['auth_key'], secret: true);
         }

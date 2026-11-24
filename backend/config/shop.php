@@ -17,6 +17,7 @@ return [
             'auth_key' => env('MSG91_AUTH_KEY'),
             'template_id' => env('MSG91_TEMPLATE_ID'),
             'otp_variable' => env('MSG91_OTP_VARIABLE', 'otp'),
+            'api' => env('MSG91_API', 'otp'), // otp (SendOTP template with ##OTP##) or flow
         ],
     ],
     // Buy now, pay later. Use the sandbox URLs until the merchant accounts are approved.

@@ -14,7 +14,7 @@ class Sms
         return $saved !== null ? $saved === '1' : config('shop.sms.driver') === 'msg91';
     }
 
-    /** @return array{base_url: string, auth_key: ?string, template_id: ?string, otp_variable: string} */
+    /** @return array{base_url: string, auth_key: ?string, template_id: ?string, otp_variable: string, api: string} */
     public static function msg91(): array
     {
         $config = config('shop.sms.msg91');
@@ -24,6 +24,7 @@ class Sms
             'auth_key' => Setting::get('sms.msg91.auth_key', $config['auth_key'], secret: true),
             'template_id' => Setting::get('sms.msg91.template_id', $config['template_id']),
             'otp_variable' => Setting::get('sms.msg91.otp_variable', $config['otp_variable']),
+            'api' => Setting::get('sms.msg91.api', $config['api'] ?? 'otp'),
         ];
     }
 }
