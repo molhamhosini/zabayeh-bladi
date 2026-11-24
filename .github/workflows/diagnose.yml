@@ -33,4 +33,7 @@ jobs:
           grep -h -E '\.(ERROR|CRITICAL)' storage/logs/*.log 2>/dev/null | tail -8 | sed -E 's/"exception":.*//' | cut -c1-600
           echo "== Recent SMS log lines =="
           grep -h -iE 'msg91|SMS to' storage/logs/*.log 2>/dev/null | tail -5 | sed -E 's/[0-9]{6}$/******/' | cut -c1-600
+          echo "== Latest orders =="
+          PHP=$(ls -d /opt/alt/php8[3-9]/usr/bin/php 2>/dev/null | tail -1); PHP=${PHP:-php}
+          $PHP artisan tinker --execute='foreach (App\Models\Order::latest("id")->take(5)->get() as $o) echo $o->id," ",$o->number ?? "", " ", $o->status?->value ?? $o->status, " ", $o->payment_method?->value ?? $o->payment_method, " ", $o->payment_status?->value ?? $o->payment_status, " ", $o->created_at, PHP_EOL;' 2>&1 | tail -6
           REMOTE
