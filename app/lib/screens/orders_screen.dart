@@ -29,7 +29,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  void _reload() => setState(() => _orders = context.read<Api>().get('/orders').then((r) => r is Map ? r['data'] as List : r as List));
+  void _reload() {
+    final orders = context.read<Api>().get('/orders').then((r) => r is Map ? r['data'] as List : r as List);
+    setState(() {
+      _orders = orders;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
