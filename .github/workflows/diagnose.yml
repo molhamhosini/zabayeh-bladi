@@ -1,0 +1,36 @@
+# Read-only health report from the server: recent application errors (SMS, payments, 500s).
+# Run by hand: Actions > Diagnose > Run workflow. Prints error summaries only, never .env values.
+name: Diagnose
+
+on:
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: ${{ vars.DOMAIN || 'poszabayehbladi.com' }}
+    steps:
+      - name: Read combined secret (ZABAYEHBLADI_SECRET)
+        env:
+          COMBINED: ${{ secrets.ZABAYEHBLADI_SECRET }}
+        run: |
+          [ -n "$COMBINED" ] || exit 0
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"; [[ "$line" == *=* ]] || continue
+            key="$(echo "${line%%=*}" | tr -d '[:space:]')"; value="$(echo "${line#*=}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            case "$key" in SSH_HOST|SSH_PORT|SSH_USER|SSH_PASSWORD) ;; *) continue;; esac
+            echo "::add-mask::$value"; d="EOF_$(openssl rand -hex 8)"; printf '%s<<%s\n%s\n%s\n' "$key" "$d" "$value" "$d" >> "$GITHUB_ENV"
+          done <<< "$COMBINED"
+      - name: Server report
+        run: |
+          sudo apt-get install -y -qq sshpass >/dev/null
+          export SSHPASS="$SSH_PASSWORD"; PORT="${SSH_PORT:-65002}"
+          mkdir -p ~/.ssh && ssh-keyscan -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          sshpass -e ssh -p "$PORT" "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
+          cd domains/*/zabayeh-bladi/backend
+          echo "== Recent errors (newest last) =="
+          grep -h -E '\.(ERROR|CRITICAL)' storage/logs/*.log 2>/dev/null | tail -8 | sed -E 's/"exception":.*//' | cut -c1-600
+          echo "== Recent SMS log lines =="
+          grep -h -iE 'msg91|SMS to' storage/logs/*.log 2>/dev/null | tail -5 | sed -E 's/[0-9]{6}$/******/' | cut -c1-600
+          REMOTE
