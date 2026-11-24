@@ -14,6 +14,7 @@ import 'providers/location_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/location_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -43,8 +44,15 @@ Future<void> main() async {
   ));
 }
 
-class ZabayehApp extends StatelessWidget {
+class ZabayehApp extends StatefulWidget {
   const ZabayehApp({super.key});
+
+  @override
+  State<ZabayehApp> createState() => _ZabayehAppState();
+}
+
+class _ZabayehAppState extends State<ZabayehApp> {
+  bool _splashDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +69,14 @@ class ZabayehApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: buildTheme(locale),
-      home: hasArea ? const HomeScreen() : const LocationScreen(),
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        child: !_splashDone
+            ? SplashScreen(key: const ValueKey('splash'), onDone: () => setState(() => _splashDone = true))
+            : hasArea
+                ? const HomeScreen(key: ValueKey('home'))
+                : const LocationScreen(key: ValueKey('location')),
+      ),
     );
   }
 }
