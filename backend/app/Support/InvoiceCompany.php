@@ -16,6 +16,7 @@ class InvoiceCompany
             'name_ar' => 'ذبائح بلادي',
             'name_en' => 'Zabayeh Bladi',
             'legal_name_ar' => 'نور الهدى لتجارة المواشي والاغنام ذ.م.م',
+            'trn' => '105471107000001',
             'website' => parse_url((string) config('app.url'), PHP_URL_HOST),
             'footer_note' => 'شكراً لاختياركم ذبائح بلادي',
         ];
