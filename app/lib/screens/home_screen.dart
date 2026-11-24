@@ -28,30 +28,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int get _tab => HomeScreen.tab.value;
-
-  void _onTab() {
-    if (!mounted) return;
-    setState(() {
-      if (_tab == 2) _ordersVisit++;
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    HomeScreen.tab.addListener(_onTab);
-  }
-
-  @override
-  void dispose() {
-    HomeScreen.tab.removeListener(_onTab);
-    super.dispose();
-  }
   int _ordersVisit = 0; // a fresh orders list every time the tab is opened
+  int _lastTab = 0;
 
   @override
   Widget build(BuildContext context) {
+    // Listening in build (not initState) so a tab change from another screen always lands here.
+    return ValueListenableBuilder<int>(valueListenable: HomeScreen.tab, builder: (context, tab, _) => _scaffold(context, tab));
+  }
+
+  Widget _scaffold(BuildContext context, int _tab) {
+    if (_tab == 2 && _lastTab != 2) _ordersVisit++;
+    _lastTab = _tab;
     final cartCount = context.watch<CartProvider>().count;
     final pages = [const _Home(), const CategoryScreen(embedded: true), OrdersScreen(key: ValueKey(_ordersVisit)), const AccountScreen(), const CartScreen()];
     return Scaffold(

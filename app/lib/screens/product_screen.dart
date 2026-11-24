@@ -108,13 +108,16 @@ class _ProductScreenState extends State<ProductScreen> {
       ..remove('variants');
     cart.add(CartLine(product: product, variant: _variant, options: _chosenOptions, quantity: _qty));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text(t('added')))]),
-      backgroundColor: Brand.success,
-    ));
-    // Straight to the cart to finish the order.
+    final messenger = ScaffoldMessenger.of(context);
+    // Straight to the cart to finish the order, then confirm there.
     Navigator.of(context).popUntil((route) => route.isFirst);
     HomeScreen.tab.value = HomeScreen.cartTab;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text(t('added')))]),
+      backgroundColor: Brand.success,
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   @override
