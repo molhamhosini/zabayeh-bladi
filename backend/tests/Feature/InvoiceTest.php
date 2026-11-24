@@ -54,6 +54,7 @@ class InvoiceTest extends TestCase
             ->assertSee('100123456700003')
             ->assertSee('نور الهدى لتجارة المواشي والاغنام ذ.م.م')
             ->assertSee('INV-'.$order->number)
+            ->assertSee('0568888211')
             ->assertSee(number_format((float) $order->total, 2));
 
         $this->get("/orders/{$order->id}/invoice?size=80mm")->assertOk()->assertSee('TAX INVOICE');
