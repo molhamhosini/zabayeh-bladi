@@ -130,7 +130,9 @@ class _AreaPickerState extends State<_AreaPicker> {
         future: _emirates,
         builder: (context, snap) {
           if (snap.hasError) {
-            return ErrorRetry(message: context.t('error'), onRetry: () => setState(() => _emirates = context.read<Api>().get('/emirates').then((v) => v as List)));
+            return ErrorRetry(message: context.t('error'), onRetry: () => setState(() {
+                  _emirates = context.read<Api>().get('/emirates').then((v) => v as List);
+                }));
           }
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final list = _emirate == null ? snap.data! : (_emirate!['areas'] as List);
