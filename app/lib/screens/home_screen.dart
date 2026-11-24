@@ -19,12 +19,35 @@ import 'orders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  /// Selected bottom tab; other screens can switch it (e.g. to the cart after adding a product).
+  static final tab = ValueNotifier<int>(0);
+  static const cartTab = 4;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _tab = 0;
+  int get _tab => HomeScreen.tab.value;
+
+  void _onTab() {
+    if (!mounted) return;
+    setState(() {
+      if (_tab == 2) _ordersVisit++;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HomeScreen.tab.addListener(_onTab);
+  }
+
+  @override
+  void dispose() {
+    HomeScreen.tab.removeListener(_onTab);
+    super.dispose();
+  }
   int _ordersVisit = 0; // a fresh orders list every time the tab is opened
 
   @override
@@ -38,10 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         indicatorColor: Brand.gold.withValues(alpha: .35),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (i) => setState(() {
-          if (i == 2) _ordersVisit++;
-          _tab = i;
-        }),
+        onDestinationSelected: (i) => HomeScreen.tab.value = i,
         destinations: [
           NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home_rounded), label: context.t('home')),
           NavigationDestination(icon: const Icon(Icons.grid_view_outlined), selectedIcon: const Icon(Icons.grid_view_rounded), label: context.t('sections')),

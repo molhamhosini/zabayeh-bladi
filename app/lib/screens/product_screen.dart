@@ -9,6 +9,8 @@ import '../providers/favorites_provider.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/product_card.dart';
+import 'home_screen.dart';
+
 
 class ProductScreen extends StatefulWidget {
   const ProductScreen({super.key, required this.productId});
@@ -40,13 +42,13 @@ class _ProductScreenState extends State<ProductScreen> {
       setState(() {
         _product = p;
         _error = null;
-        final variants = (p['variants'] as List? ?? []).where((v) => v['in_stock'] == true).toList();
-        _variant = variants.isEmpty ? null : Map<String, dynamic>.from(variants.first);
+        // Nothing is pre-selected: the customer must pick the weight and each required choice.
+        // Only "includes" checklists (multiple choice) keep their default ticks.
+        _variant = null;
         for (final g in p['option_groups'] as List) {
           final opts = (g['options'] as List);
           final defaults = opts.where((o) => o['default_selected'] == true).map<int>((o) => o['id']).toSet();
-          if (defaults.isEmpty && g['required'] == true && g['multiple'] != true && opts.isNotEmpty) defaults.add(opts.first['id']);
-          _selected[g['id']] = g['multiple'] == true ? defaults : defaults.take(1).toSet();
+          _selected[g['id']] = g['multiple'] == true ? defaults : <int>{};
         }
       });
     } catch (e) {
@@ -61,8 +63,16 @@ class _ProductScreenState extends State<ProductScreen> {
               {...Map<String, dynamic>.from(o), 'group_ar': g['name_ar'], 'group_en': g['name_en']},
       ];
 
+  /// Lowest in-stock weight price, shown as "from" until a weight is chosen.
+  double get _fromPrice {
+    final prices = _variants.where((v) => v['in_stock'] == true).map((v) => double.parse('${v['price']}')).toList();
+    return prices.isEmpty ? double.parse('${_product!['price']}') : prices.reduce((a, b) => a < b ? a : b);
+  }
+
+  bool get _needsWeight => _variants.isNotEmpty && _variant == null;
+
   double get _unit =>
-      double.parse('${_variant?['price'] ?? _product!['price']}') +
+      (_variant != null ? double.parse('${_variant!['price']}') : _fromPrice) +
       _chosenOptions.fold<double>(0, (s, o) => s + double.parse('${o['extra_price']}'));
 
   Future<void> _add() async {
@@ -98,8 +108,13 @@ class _ProductScreenState extends State<ProductScreen> {
       ..remove('variants');
     cart.add(CartLine(product: product, variant: _variant, options: _chosenOptions, quantity: _qty));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('added')), backgroundColor: Brand.success));
-    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text(t('added')))]),
+      backgroundColor: Brand.success,
+    ));
+    // Straight to the cart to finish the order.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    HomeScreen.tab.value = HomeScreen.cartTab;
   }
 
   @override
@@ -111,7 +126,7 @@ class _ProductScreenState extends State<ProductScreen> {
     final p = _product!;
     final inStock = p['in_stock'] == true;
     final fav = favorites.contains(p['id']);
-    final price = double.parse('${_variant?['price'] ?? p['price']}');
+    final price = _variant != null ? double.parse('${_variant!['price']}') : _fromPrice;
     final old = double.tryParse('${_variant?['compare_at_price'] ?? ''}');
 
     return Scaffold(
@@ -144,7 +159,10 @@ class _ProductScreenState extends State<ProductScreen> {
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Price(price, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: Brand.ink)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              if (_needsWeight) Text('${context.t('from')} ', style: text.bodyMedium?.copyWith(color: Brand.muted)),
+              Price(price, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: Brand.ink)),
+            ]),
             if (old != null && old > price) OldPrice(old),
             Text(context.t('exclVat'), style: text.bodySmall?.copyWith(color: Brand.muted)),
             Text(context.tr(p['category']), style: text.bodySmall?.copyWith(color: Brand.muted)),
@@ -181,7 +199,7 @@ class _ProductScreenState extends State<ProductScreen> {
             const Icon(Icons.add_shopping_cart_rounded),
             const SizedBox(width: 8),
             Text(context.t(inStock ? 'addToCart' : 'outOfStock')),
-            if (inStock) ...[
+            if (inStock && !_needsWeight) ...[
               const Text('  ·  '),
               Price(_unit * _qty, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
             ],
