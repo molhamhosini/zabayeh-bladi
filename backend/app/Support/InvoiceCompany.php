@@ -19,6 +19,8 @@ class InvoiceCompany
             'trn' => '105471107000001',
             'phone' => '0568888211 - 0568888210',
             'email' => 'info@zabayeah.com',
+            'address_ar' => 'أبوظبي، الإمارات العربية المتحدة',
+            'address_en' => 'Abu Dhabi, UAE',
             'footer_note' => 'شكراً لاختياركم ذبائح بلادي',
         ];
         $out = [];
