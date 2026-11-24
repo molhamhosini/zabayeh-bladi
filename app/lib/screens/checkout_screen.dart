@@ -180,7 +180,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } else if (res['payment_error'] != null) {
         showError(context, res['payment_error']);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('orderPlaced')), backgroundColor: Brand.success));
+        showSuccess(context, t('orderPlaced'));
       }
     } catch (e) {
       if (mounted) showError(context, e);

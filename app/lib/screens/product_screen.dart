@@ -108,16 +108,10 @@ class _ProductScreenState extends State<ProductScreen> {
       ..remove('variants');
     cart.add(CartLine(product: product, variant: _variant, options: _chosenOptions, quantity: _qty));
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     // Straight to the cart to finish the order, then confirm there.
     Navigator.of(context).popUntil((route) => route.isFirst);
     HomeScreen.tab.value = HomeScreen.cartTab;
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(SnackBar(
-      content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text(t('added')))]),
-      backgroundColor: Brand.success,
-      duration: const Duration(seconds: 3),
-    ));
+    showSuccess(context, t('added'));
   }
 
   @override
@@ -193,7 +187,7 @@ class _ProductScreenState extends State<ProductScreen> {
           QtyStepper(value: _qty, onChanged: (v) => setState(() => _qty = v)),
         ]),
       ]),
-      bottomSheet: Container(
+      bottomNavigationBar: Container(
         color: Colors.white,
         padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
         child: FilledButton(

@@ -42,6 +42,24 @@ class ErrorRetry extends StatelessWidget {
       );
 }
 
-void showError(BuildContext context, Object e) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Brand.maroonDark));
+/// Shows a message right away: any earlier message is dropped first, so a new one never waits in a queue.
+void showMessage(BuildContext context, String message, {bool success = false}) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(SnackBar(
+    behavior: SnackBarBehavior.floating,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    backgroundColor: success ? Brand.success : Brand.maroonDark,
+    duration: const Duration(seconds: 3),
+    content: Row(children: [
+      Icon(success ? Icons.check_circle : Icons.error_outline, color: Colors.white),
+      const SizedBox(width: 10),
+      Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+    ]),
+  ));
 }
+
+void showError(BuildContext context, Object e) => showMessage(context, e.toString());
+
+void showSuccess(BuildContext context, String message) => showMessage(context, message, success: true);
