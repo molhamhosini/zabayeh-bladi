@@ -18,6 +18,7 @@ class InvoiceCompany
             'legal_name_ar' => 'نور الهدى لتجارة المواشي والاغنام ذ.م.م',
             'trn' => '105471107000001',
             'phone' => '0568888211 - 0568888210',
+            'email' => 'info@zabayeah.com',
             'footer_note' => 'شكراً لاختياركم ذبائح بلادي',
         ];
         $out = [];

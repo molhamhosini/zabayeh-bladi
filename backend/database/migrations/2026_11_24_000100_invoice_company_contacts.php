@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         DB::table('settings')->where('key', 'invoice.website')->delete();
+        DB::table('settings')->updateOrInsert(['key' => 'invoice.email'], ['value' => 'info@zabayeah.com', 'updated_at' => now(), 'created_at' => now()]);
         DB::table('settings')->updateOrInsert(['key' => 'invoice.phone'], ['value' => '0568888211 - 0568888210', 'updated_at' => now(), 'created_at' => now()]);
     }
 
