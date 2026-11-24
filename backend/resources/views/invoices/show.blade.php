@@ -73,6 +73,7 @@
   .badge.unpaid { background:#FCEBD9; color:#9A5A12; }
   footer { position:absolute; left:14mm; right:14mm; bottom:10mm; display:flex; justify-content:space-between; align-items:flex-end; border-top:2px solid var(--gold); padding-top:8px; font-size:11.5px; color:var(--muted); }
   footer .thanks { color:var(--maroon); font-weight:800; font-size:14px; }
+  footer .contact { display:flex; flex-wrap:wrap; gap:4px 16px; color:var(--ink); margin:4px 0 2px; }
 
   /* 80mm thermal */
   .receipt { width:80mm; margin:18px auto; background:#fff; padding:5mm 4mm; font-size:11.5px; color:#000; box-shadow:0 6px 30px rgba(0,0,0,.12); }
@@ -121,12 +122,7 @@
       </div>
       <div class="seller">
         @if ($company['legal_name_ar'])<div><b>{{ $company['legal_name_ar'] }}</b>@if ($company['legal_name_en']) <span class="en">· {{ $company['legal_name_en'] }}</span>@endif</div>@endif
-        @if ($company['address_ar'])<div>{{ $company['address_ar'] }} @if ($company['address_en'])<span class="en"> — {{ $company['address_en'] }}</span>@endif</div>@endif
-        <div>
-          @if ($company['phone'])<span class="num">{{ $company['phone'] }}</span>@endif
-          @if ($company['email']) · <span class="num">{{ $company['email'] }}</span>@endif
-          @if ($company['website']) · <span class="num">{{ $company['website'] }}</span>@endif
-        </div>
+        @if ($company['address_ar'])<div>{{ $company['address_ar'] }}@if ($company['address_en']) · <span class="en">{{ $company['address_en'] }}</span>@endif</div>@endif
       </div>
     </div>
     <div class="title">
@@ -227,6 +223,10 @@
   <footer>
     <div>
       <div class="thanks">{{ $company['footer_note'] }}</div>
+      <div class="contact">
+        @if ($company['phone'])<span>📞 <span class="num">{{ $company['phone'] }}</span></span>@endif
+        @if ($company['email'])<span>✉ <span class="num">{{ $company['email'] }}</span></span>@endif
+      </div>
       <div>جميع الأسعار بالدرهم الإماراتي · All amounts in AED</div>
     </div>
     <div class="num">INV-{{ $order->number }}</div>
@@ -240,7 +240,6 @@
     <div class="en">{{ $company['name_en'] }}</div>
     @if ($company['legal_name_ar'])<div><b>{{ $company['legal_name_ar'] }}</b></div>@endif
     @if ($company['address_ar'])<div>{{ $company['address_ar'] }}</div>@endif
-    @if ($company['phone'])<div class="num">{{ $company['phone'] }}</div>@endif
     @if ($company['trn'])<div><b>TRN: <span class="num">{{ $company['trn'] }}</span></b></div>@endif
   </div>
   <div class="t">فاتورة ضريبية · TAX INVOICE</div>
@@ -267,7 +266,11 @@
   <div class="row"><span>الدفع</span><span>{{ $methods[$order->payment_method] ?? $order->payment_method }}</span></div>
   <div class="row"><span>الحالة</span><span>{{ $payment[$order->payment_status] ?? $order->payment_status }}</span></div>
   <div class="sep"></div>
-  <div class="c">{{ $company['footer_note'] }}</div>
+  <div class="c">
+    <b>{{ $company['footer_note'] }}</b>
+    @if ($company['phone'])<div class="num">{{ $company['phone'] }}</div>@endif
+    @if ($company['email'])<div class="num">{{ $company['email'] }}</div>@endif
+  </div>
 </div>
 @endif
 
