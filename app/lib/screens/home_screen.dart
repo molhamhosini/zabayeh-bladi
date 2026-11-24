@@ -25,11 +25,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
+  int _ordersVisit = 0; // a fresh orders list every time the tab is opened
 
   @override
   Widget build(BuildContext context) {
     final cartCount = context.watch<CartProvider>().count;
-    final pages = [const _Home(), const CategoryScreen(embedded: true), const OrdersScreen(), const AccountScreen(), const CartScreen()];
+    final pages = [const _Home(), const CategoryScreen(embedded: true), OrdersScreen(key: ValueKey(_ordersVisit)), const AccountScreen(), const CartScreen()];
     return Scaffold(
       body: IndexedStack(index: _tab, children: pages),
       bottomNavigationBar: NavigationBar(
@@ -37,7 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         indicatorColor: Brand.gold.withValues(alpha: .35),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        onDestinationSelected: (i) => setState(() {
+          if (i == 2) _ordersVisit++;
+          _tab = i;
+        }),
         destinations: [
           NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home_rounded), label: context.t('home')),
           NavigationDestination(icon: const Icon(Icons.grid_view_outlined), selectedIcon: const Icon(Icons.grid_view_rounded), label: context.t('sections')),
